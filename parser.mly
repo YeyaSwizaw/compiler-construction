@@ -23,8 +23,10 @@ expr:
     | v = value { Syntax.Value v }
     | o = op { Syntax.Op o }
     | LPAREN; c = callspec; RPAREN { Syntax.Apply c }
+    | a = assignment { a }
 
 value:
+    | f = func { f }
     | i = INT { Syntax.Int i }
     | i = IDENT { Syntax.Ident i }
 
@@ -38,3 +40,17 @@ callspec:
     | i = INT { Syntax.Partial(i) }
     | STAR { Syntax.Total }
     | { Syntax.Full }
+
+assignment:
+    | i = IDENT; COLON; v = value { Syntax.Assignment (i, v) }
+
+func:
+    | a = func_arg_list; LBRACE; b = func_body; RBRACE { Syntax.Function (a, b) }
+
+func_arg_list:
+    | { [] }
+    | i = IDENT; ARROW; a = func_arg_list { i::a }
+
+func_body:
+    | { [] }
+    | e = expr; f = func_body { e::f }
