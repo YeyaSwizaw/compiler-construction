@@ -1,8 +1,7 @@
 {
+
 open Lexing
 open Parser
-
-exception SyntaxError of string
 
 let next_line lexbuf = 
     let pos = lexbuf.lex_curr_p in
@@ -10,6 +9,7 @@ let next_line lexbuf =
         { pos with pos_bol = lexbuf.lex_curr_pos;
                    pos_lnum = pos.pos_lnum + 1
         }
+
 }
 
 let int = '-'? ['0'-'9']+
@@ -35,4 +35,4 @@ rule read =
         | '+' { PLUS }
         | '*' { STAR }
         | eof { EOF }
-        | _ { raise (SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
+        | _ { ERROR (Lexing.lexeme lexbuf) }
