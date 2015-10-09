@@ -34,5 +34,12 @@ rule read =
         | '/' { DIVIDE }
         | '+' { PLUS }
         | '*' { STAR }
+        | '#' { comment lexbuf } 
         | eof { EOF }
         | _ { ERROR (Lexing.lexeme lexbuf) }
+
+and comment =
+    parse
+        | line { next_line lexbuf; read lexbuf }
+        | eof { EOF }
+        | _ { comment lexbuf }

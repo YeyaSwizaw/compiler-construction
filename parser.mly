@@ -37,14 +37,14 @@ expr:
     | a = assignment { a }
     | LPAREN; c = callspec_tail { c }
 
-    | error { Errors.Err([Errors.ExpectedExpression $startpos]) }
+    | error { Errors.Err([Errors.expected_expression $startpos $endpos]) }
 
 value:
     | f = func { f }
     | i = INT { Errors.Ok(Syntax.Value (Syntax.Int i)) }
     | i = IDENT { Errors.Ok(Syntax.Value (Syntax.Ident i)) }
 
-    | error { Errors.Err([Errors.ExpectedValue $startpos]) }
+    | error { Errors.Err([Errors.expected_value $startpos $endpos]) }
 
 op:
     | SUB { Errors.Ok(Syntax.Op Syntax.Minus) }
@@ -59,14 +59,14 @@ callspec_tail:
             | Errors.Err(err) -> Errors.Err(err)
     }
 
-    | error { Errors.Err([Errors.ExpectedRParen $startpos]) }
+    | error { Errors.Err([Errors.expected_rparen $startpos $endpos]) }
 
 callspec:
     | i = INT { Errors.Ok(Syntax.Partial(i)) }
     | STAR { Errors.Ok(Syntax.Total) }
     | { Errors.Ok(Syntax.Full) }
 
-    | error { Errors.Err([Errors.ExpectedCallspec $startpos]) }
+    | error { Errors.Err([Errors.expected_callspec $startpos $endpos]) }
 
 assignment:
     | i = IDENT; COLON; v = value { 
