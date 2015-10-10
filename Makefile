@@ -2,15 +2,23 @@ SRCDIR = src
 
 OCAML = ocamlbuild -r -I $(SRCDIR) -use-menhir -use-ocamlfind -pkg core -tag thread -menhir "menhir -v"
 
-TARGET = sfl.native
+TARGET = sfl
+TESTTARGET = test
 
-all: target
+all: $(TARGET) $(TESTTARGET)
 
-target: $(TARGET)
+$(TARGET): clean_target $(TARGET).native
 
-$(TARGET):	
+$(TESTTARGET): clean_test $(TESTTARGET).native
+
+%.native: 
 	$(OCAML) $@
 
-clean:
+clean: clean_target clean_test
 	rm -rf _build
-	rm -rf $(TARGET)
+
+clean_target:
+	rm -rf $(TARGET).native
+
+clean_test:
+	rm -rf $(TESTTARGET).native
