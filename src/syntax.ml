@@ -1,3 +1,6 @@
+(* Compiler Construction - syntax.ml *)
+(* Samuel Sleight *)
+
 (* AST Types *)
 type apply_spec =
     | Partial of int

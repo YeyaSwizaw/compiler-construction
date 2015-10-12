@@ -1,3 +1,6 @@
+(* Compiler Construction - sfl.ml *)
+(* Samuel Sleight *)
+
 open Core.Std
 
 let run filename () =

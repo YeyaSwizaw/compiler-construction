@@ -1,3 +1,6 @@
+(* Compiler Construction - compiler.ml *)
+(* Samuel Sleight *)
+
 open Lexing
 
 let run ?parser_callback ?filename file =

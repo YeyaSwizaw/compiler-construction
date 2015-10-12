@@ -1,3 +1,6 @@
+(* Compiler Construction - parser.mly *)
+(* Samuel Sleight *)
+
 %{ 
 open Errors
 %}

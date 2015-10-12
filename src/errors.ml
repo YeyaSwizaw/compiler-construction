@@ -1,3 +1,6 @@
+(* Compiler Construction - errors.ml *)
+(* Samuel Sleight *)
+
 open Core.Std
 open Lexing
 

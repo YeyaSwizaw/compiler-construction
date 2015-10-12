@@ -1,3 +1,6 @@
+(* Compiler Construction - lexer.mll *)
+(* Samuel Sleight *)
+
 {
 
 open Lexing
