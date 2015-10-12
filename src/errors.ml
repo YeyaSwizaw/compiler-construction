@@ -10,9 +10,11 @@ type syntax_error_t =
 type error =
     | SyntaxError of Lexing.position * Lexing.position * syntax_error_t
 
-type 'a parse_result = 
+type ('a, 'b) result =
     | Ok of 'a
-    | Err of (error list)
+    | Err of 'b
+
+type 'a parse_result = ('a, (error list)) result
 
 let expected_expression b e = SyntaxError (b, e, ExpectedExpression)
 let expected_value b e = SyntaxError (b, e, ExpectedValue)
