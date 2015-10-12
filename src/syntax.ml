@@ -16,6 +16,7 @@ type op_item =
 type value_item =
     | Int of int
     | Ident of string
+    | String of string
     | Function of string list * expr list
 
 and expr =
@@ -33,6 +34,7 @@ let rec print_expr = function
     | Value v -> begin match v with
         | Int i -> print_int i
         | Ident s -> print_string s
+        | String s -> print_string ("\"" ^ s ^ "\"")
         | Function (args, body) -> begin
             print_args args;
             print_string "{";

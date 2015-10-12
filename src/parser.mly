@@ -7,9 +7,10 @@ open Errors
 
 %token <int> INT
 %token <string> IDENT
+%token <string> STRING
 %token LPAREN
 %token RPAREN
-%token LBRACE
+%token <Lexing.position> LBRACE
 %token RBRACE
 %token COLON
 %token ARROW
@@ -18,6 +19,8 @@ open Errors
 %token PLUS
 %token STAR
 %token EOF
+
+%token <Lexing.position> UNTERMINATED_STRING
 %token <string> ERROR
 
 %start <(Syntax.expr list) Errors.parse_result> program
@@ -46,7 +49,9 @@ value:
     | f = func { f }
     | i = INT { Errors.Ok(Syntax.Value (Syntax.Int i)) }
     | i = IDENT { Errors.Ok(Syntax.Value (Syntax.Ident i)) }
+    | s = STRING { Errors.Ok(Syntax.Value (Syntax.String s)) }
 
+    | p = UNTERMINATED_STRING { Errors.Err([Errors.unterminated_string p]) }
     | error { Errors.Err([Errors.expected_value $startpos $endpos]) }
 
 op:
@@ -79,6 +84,12 @@ assignment:
     }
 
 func:
+    | a = func_arg_list; p = LBRACE; b = func_body; EOF { 
+        match b with
+            | Errors.Ok(_) -> Errors.Err([Errors.unterminated_lbrace p])
+            | Errors.Err(err) -> Errors.Err((Errors.unterminated_lbrace p) :: err)
+    }
+
     | a = func_arg_list; LBRACE; b = func_body; RBRACE { 
         match b with
             | Errors.Ok(b') -> Errors.Ok(Syntax.Value (Syntax.Function (a, b'))) 

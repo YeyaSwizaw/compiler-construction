@@ -11,6 +11,8 @@ type syntax_error_t =
     | ExpectedRParen
 
 type error =
+    | UnterminatedLBrace of Lexing.position
+    | UnterminatedString of Lexing.position
     | SyntaxError of Lexing.position * Lexing.position * syntax_error_t
 
 type ('a, 'b) result =
@@ -19,6 +21,8 @@ type ('a, 'b) result =
 
 type 'a parse_result = ('a, (error list)) result
 
+let unterminated_lbrace p = UnterminatedLBrace p
+let unterminated_string p = UnterminatedString p
 let expected_expression b e = SyntaxError (b, e, ExpectedExpression)
 let expected_value b e = SyntaxError (b, e, ExpectedValue)
 let expected_callspec b e = SyntaxError (b, e, ExpectedCallspec)
@@ -62,12 +66,26 @@ let rec print_errors file = function
         print_string "[1;31m[Error][0m";
 
         begin match e with
+            | UnterminatedString pos -> (
+                print_string "[1;35m["; print_position pos; print_string "][0m ";
+                print_newline ();
+                print_endline "Unterminated string literal: expected closing [1;37m'\"'[0m";
+                print_error_location file pos
+            )
+
+            | UnterminatedLBrace pos -> (
+                print_string "[1;35m["; print_position pos; print_string "][0m ";
+                print_newline ();
+                print_endline "Unterminated opening brace: expected [1;37m'}'[0m";
+                print_error_location file pos
+            )
+
             | SyntaxError (start, finish, ExpectedExpression) -> (
                 print_string "[1;35m["; print_position start; print_string "][0m ";
                 print_newline ();
                 print_string "Expected expression, found: [1;37m'"; 
                 print_error_in_file file start.pos_cnum finish.pos_cnum;
-                print_endline "[0m'";
+                print_endline "'[0m";
                 print_error_location file start
             )
 
@@ -76,7 +94,7 @@ let rec print_errors file = function
                 print_newline ();
                 print_string "Expected value, found: [1;37m'"; 
                 print_error_in_file file start.pos_cnum finish.pos_cnum;
-                print_endline "[0m'";
+                print_endline "'[0m";
                 print_error_location file start
             )
 
@@ -85,7 +103,7 @@ let rec print_errors file = function
                 print_newline ();
                 print_string "Expected number, '*', or ')', found: [1;37m'";
                 print_error_in_file file start.pos_cnum finish.pos_cnum;
-                print_endline "[0m'";
+                print_endline "'[0m";
                 print_error_location file start
             )
 
@@ -94,7 +112,7 @@ let rec print_errors file = function
                 print_newline ();
                 print_string "Expected ')', found: [1;37m'";
                 print_error_in_file file start.pos_cnum finish.pos_cnum;
-                print_endline "[0m'";
+                print_endline "'[0m";
                 print_error_location file start
             )
         end;

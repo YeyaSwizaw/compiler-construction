@@ -22,6 +22,7 @@ let rec stringify = function
     | expr :: es -> match expr with
         | Value (Int n) -> "Val[" ^ (string_of_int n) ^ "] " ^ (stringify es)
         | Value (Ident s) -> "Val[" ^ s ^ "] " ^ (stringify es)
+        | Value (String s) -> "Str[" ^ s ^ "] " ^ (stringify es)
         | Value (Function (args, es')) -> "Val[" ^ (String.concat ~sep:" -> " args) ^ " -> {" ^ (stringify es') ^ "}] " ^ (stringify es)
 
         | Op Minus -> "Op[-] " ^ (stringify es)
@@ -65,6 +66,8 @@ let simple_test code output =
         begin match Compiler.run ~parser_callback:(fun res -> result := Ok(res)) test_file with
             | Ok(()) -> ()
             | Err(errs) -> result := Err (map (fun err -> match err with
+                | UnterminatedLBrace p
+                | UnterminatedString p -> ((p.pos_lnum, p.pos_cnum - p.pos_bol), (p.pos_lnum, p.pos_cnum - p.pos_bol))
                 | SyntaxError (sp, fp, _) -> ((sp.pos_lnum, sp.pos_cnum - sp.pos_bol), (fp.pos_lnum, fp.pos_cnum - fp.pos_bol))
             ) errs)
         end;
@@ -110,6 +113,8 @@ let () =
         simple_test "e" (Ok [Value (Ident "e")]);
         simple_test "apple" (Ok [Value (Ident "apple")]);
         simple_test "a54fd32le" (Ok [Value (Ident "a54fd32le")]);
+        simple_test "\"hello there\"" (Ok [Value (String "hello there")]);
+
         simple_test "+" (Ok [Op Plus]);
         simple_test "-" (Ok [Op Minus]);
         simple_test "*" (Ok [Op Star]);
@@ -139,7 +144,10 @@ let () =
 
         simple_test ";" (Err [(1, 0), (1, 1)]);
         simple_test "1\n(corn" (Err [(2, 1), (2, 5)]);
-        simple_test "12 13 ~\n(" (Err [(1, 6), (1, 7); (2, 1), (2, 1)])
+        simple_test "12 13 ~\n(" (Err [(1, 6), (1, 7); (2, 1), (2, 1)]);
+        simple_test "56\n45 \"hello\n\narc" (Err [(2, 3), (2, 3)]);
+        simple_test "{\n6" (Err [(1, 0), (1, 0)]);
+        simple_test "6\na -> {" (Err [(2, 5), (2, 5)]);
     ] in
 
     check_tests 1 tests

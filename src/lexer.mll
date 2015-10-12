@@ -29,20 +29,32 @@ rule read =
         | ident { IDENT (Lexing.lexeme lexbuf) }
         | '(' { LPAREN }
         | ')' { RPAREN }
-        | '{' { LBRACE }
+        | '{' { LBRACE ({lexbuf.lex_curr_p with pos_cnum = lexbuf.lex_curr_pos - 1}) }
         | '}' { RBRACE }
         | ':' { COLON }
+        | '"' { read_string ({lexbuf.lex_curr_p with pos_cnum = lexbuf.lex_curr_pos - 1}) (Buffer.create 17) lexbuf }
         | "->" { ARROW }
         | '-' { SUB }
         | '/' { DIVIDE }
         | '+' { PLUS }
         | '*' { STAR }
-        | '#' { comment lexbuf } 
+        | '#' { read_comment lexbuf } 
         | eof { EOF }
         | _ { ERROR (Lexing.lexeme lexbuf) }
 
-and comment =
+and read_string start buf =
+    parse
+        | '"' { STRING (Buffer.contents buf) }
+
+        | [^ '"' '\\']+ {
+            Buffer.add_string buf (Lexing.lexeme lexbuf);
+            read_string start buf lexbuf
+        }
+
+        | eof { UNTERMINATED_STRING start }
+
+and read_comment =
     parse
         | line { next_line lexbuf; read lexbuf }
         | eof { EOF }
-        | _ { comment lexbuf }
+        | _ { read_comment lexbuf }
