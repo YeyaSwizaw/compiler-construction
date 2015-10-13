@@ -11,12 +11,14 @@ type 'a test_result_t =
     | Success
     | Failure of 'a
 
+(* Generic test function *)
 let test_expect fail_f test_f expected = 
     fun () -> (
         let result = test_f () in
         if result = expected then Success else Failure (fail_f result expected)
     )
 
+(* Print test result expression *)
 let rec stringify = function
     | [] -> ""
     | expr :: es -> match expr with
@@ -40,7 +42,8 @@ let rec stringify_errs = function
     | [] -> ""
     | ((sl, sc), (fl, fc)) :: errs -> "Err[" ^ (string_of_int sl) ^ ":" ^ (string_of_int sc) ^ "-" ^ (string_of_int fc) ^ "] " ^ (stringify_errs errs)
 
-let simple_test code output =
+(* Run parser test on given code *)
+let parser_test code output =
     let fail_f res exp () = 
         "    Input: " ^ code 
         ^ "\n    Expected: " ^ (match exp with
@@ -106,48 +109,48 @@ let () =
     in
 
     let tests = [
-        simple_test "" (Ok []);
+        parser_test "" (Ok []);
 
-        simple_test "5" (Ok [Value (Int 5)]);
-        simple_test "1355" (Ok [Value (Int 1355)]);
-        simple_test "e" (Ok [Value (Ident "e")]);
-        simple_test "apple" (Ok [Value (Ident "apple")]);
-        simple_test "a54fd32le" (Ok [Value (Ident "a54fd32le")]);
-        simple_test "\"hello there\"" (Ok [Value (String "hello there")]);
+        parser_test "5" (Ok [Value (Int 5)]);
+        parser_test "1355" (Ok [Value (Int 1355)]);
+        parser_test "e" (Ok [Value (Ident "e")]);
+        parser_test "apple" (Ok [Value (Ident "apple")]);
+        parser_test "a54fd32le" (Ok [Value (Ident "a54fd32le")]);
+        parser_test "\"hello there\"" (Ok [Value (String "hello there")]);
 
-        simple_test "+" (Ok [Op Plus]);
-        simple_test "-" (Ok [Op Minus]);
-        simple_test "*" (Ok [Op Star]);
-        simple_test "/" (Ok [Op Divide]);
+        parser_test "+" (Ok [Op Plus]);
+        parser_test "-" (Ok [Op Minus]);
+        parser_test "*" (Ok [Op Star]);
+        parser_test "/" (Ok [Op Divide]);
 
-        simple_test "()" (Ok [Apply Full]);
-        simple_test "(*)" (Ok [Apply Total]);
-        simple_test "(8)" (Ok [Apply (Partial 8)]);
-        simple_test "(815)" (Ok [Apply (Partial 815)]);
+        parser_test "()" (Ok [Apply Full]);
+        parser_test "(*)" (Ok [Apply Total]);
+        parser_test "(8)" (Ok [Apply (Partial 8)]);
+        parser_test "(815)" (Ok [Apply (Partial 815)]);
 
-        simple_test "r: 17" (Ok [Assignment ("r", (Int 17))]);
-        simple_test "corn: bacon" (Ok [Assignment ("corn", (Ident "bacon"))]);
+        parser_test "r: 17" (Ok [Assignment ("r", (Int 17))]);
+        parser_test "corn: bacon" (Ok [Assignment ("corn", (Ident "bacon"))]);
 
-        simple_test "{}" (Ok [Value (Function ([], []))]);
-        simple_test "{2}" (Ok [Value (Function ([], [Value (Int 2)]))]);
-        simple_test "{\n2\n}" (Ok [Value (Function ([], [Value (Int 2)]))]);
-        simple_test "{146}" (Ok [Value (Function ([], [Value (Int 146)]))]);
-        simple_test "{beige}" (Ok [Value (Function ([], [Value (Ident "beige")]))]);
-        simple_test "a -> {14}" (Ok [Value (Function (["a"], [Value (Int 14)]))]);
-        simple_test "bard -> a -> {\na bard\n}" (Ok [Value (Function (["bard"; "a"], [Value (Ident "a"); Value (Ident "bard")]))]);
+        parser_test "{}" (Ok [Value (Function ([], []))]);
+        parser_test "{2}" (Ok [Value (Function ([], [Value (Int 2)]))]);
+        parser_test "{\n2\n}" (Ok [Value (Function ([], [Value (Int 2)]))]);
+        parser_test "{146}" (Ok [Value (Function ([], [Value (Int 146)]))]);
+        parser_test "{beige}" (Ok [Value (Function ([], [Value (Ident "beige")]))]);
+        parser_test "a -> {14}" (Ok [Value (Function (["a"], [Value (Int 14)]))]);
+        parser_test "bard -> a -> {\na bard\n}" (Ok [Value (Function (["bard"; "a"], [Value (Ident "a"); Value (Ident "bard")]))]);
 
-        simple_test "475 cord" (Ok [Value (Int 475); Value (Ident "cord")]);
-        simple_test "84\n856\n+" (Ok [Value (Int 84); Value (Int 856); Op Plus]);
-        simple_test "74\ndapper\n*\n()" (Ok [Value (Int 74); Value (Ident "dapper"); Op Star; Apply Full]);
+        parser_test "475 cord" (Ok [Value (Int 475); Value (Ident "cord")]);
+        parser_test "84\n856\n+" (Ok [Value (Int 84); Value (Int 856); Op Plus]);
+        parser_test "74\ndapper\n*\n()" (Ok [Value (Int 74); Value (Ident "dapper"); Op Star; Apply Full]);
 
-        simple_test "15 arc\nswap: a -> b -> {\n    a b\n}\nswap (*)" (Ok [Value (Int 15); Value (Ident "arc"); Assignment ("swap", Function (["a"; "b"], [Value (Ident "a"); Value (Ident "b")])); Value (Ident "swap"); Apply Total]);
+        parser_test "15 arc\nswap: a -> b -> {\n    a b\n}\nswap (*)" (Ok [Value (Int 15); Value (Ident "arc"); Assignment ("swap", Function (["a"; "b"], [Value (Ident "a"); Value (Ident "b")])); Value (Ident "swap"); Apply Total]);
 
-        simple_test ";" (Err [(1, 0), (1, 1)]);
-        simple_test "1\n(corn" (Err [(2, 1), (2, 5)]);
-        simple_test "12 13 ~\n(" (Err [(1, 6), (1, 7); (2, 1), (2, 1)]);
-        simple_test "56\n45 \"hello\n\narc" (Err [(2, 3), (2, 3)]);
-        simple_test "{\n6" (Err [(1, 0), (1, 0)]);
-        simple_test "6\na -> {" (Err [(2, 5), (2, 5)]);
+        parser_test ";" (Err [(1, 0), (1, 1)]);
+        parser_test "1\n(corn" (Err [(2, 1), (2, 5)]);
+        parser_test "12 13 ~\n(" (Err [(1, 6), (1, 7); (2, 1), (2, 1)]);
+        parser_test "56\n45 \"hello\n\narc" (Err [(2, 3), (2, 3)]);
+        parser_test "{\n6" (Err [(1, 0), (1, 0)]);
+        parser_test "6\na -> {" (Err [(2, 5), (2, 5)]);
     ] in
 
     check_tests 1 tests

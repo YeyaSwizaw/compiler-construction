@@ -6,6 +6,7 @@
 open Lexing
 open Parser
 
+(* Increment lexbuf line number (taken from RWO) *)
 let next_line lexbuf = 
     let pos = lexbuf.lex_curr_p in
     lexbuf.lex_curr_p <- 

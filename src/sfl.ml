@@ -5,10 +5,12 @@ open Core.Std
 
 let run filename () =
     try
+        (* Open a file *)
         let chan = In_channel.create filename in
 
+        (* Run the compiler *)
         let result = Compiler.run 
-            ~parser_callback:(Syntax.print_prog)
+            ~parser_callback:(Syntax.print_prog) (* Print parsed expressions *)
             ~filename: filename
             chan 
         in

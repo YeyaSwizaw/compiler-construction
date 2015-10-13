@@ -5,12 +5,13 @@
 open Errors
 %}
 
+(* Symbol Tokens *)
 %token <int> INT
 %token <string> IDENT
 %token <string> STRING
 %token LPAREN
 %token RPAREN
-%token <Lexing.position> LBRACE
+%token <Lexing.position> LBRACE (* Position for unterminated brace errors *)
 %token RBRACE
 %token COLON
 %token ARROW
@@ -18,11 +19,15 @@ open Errors
 %token DIVIDE
 %token PLUS
 %token STAR
+
+(* End of file *)
 %token EOF
 
+(* Error handling tokens *)
 %token <Lexing.position> UNTERMINATED_STRING
-%token <string> ERROR
+%token <string> ERROR (* Generic catch all to stop lexer errors *)
 
+(* Start symbol - either a list of expressions or a list of errors *)
 %start <(Syntax.expr list) Errors.parse_result> program
 
 %%

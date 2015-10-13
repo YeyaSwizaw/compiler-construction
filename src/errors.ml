@@ -4,6 +4,7 @@
 open Core.Std
 open Lexing
 
+(* Generic syntax errors *)
 type syntax_error_t =
     | ExpectedExpression
     | ExpectedValue
@@ -15,6 +16,7 @@ type error =
     | UnterminatedString of Lexing.position
     | SyntaxError of Lexing.position * Lexing.position * syntax_error_t
 
+(* Generic result type *)
 type ('a, 'b) result =
     | Ok of 'a
     | Err of 'b
@@ -28,12 +30,14 @@ let expected_value b e = SyntaxError (b, e, ExpectedValue)
 let expected_callspec b e = SyntaxError (b, e, ExpectedCallspec)
 let expected_rparen b e = SyntaxError (b, e, ExpectedRParen)
 
+(* Helpful error pretty printing functions *)
 let print_position p = 
     print_string (p.pos_fname ^ ":");
     print_int p.pos_lnum;
     print_string ":";
     print_int (p.pos_cnum - p.pos_bol)
 
+(* Print complete error token *)
 let print_error_in_file file pos epos =
     In_channel.seek file (Int64.of_int pos);
 
@@ -48,7 +52,7 @@ let print_error_in_file file pos epos =
 
     print_loop (epos - pos)
 
-
+(* Print line in file with arrow underneath *)
 let print_error_location file start = 
     In_channel.seek file (Int64.of_int start.pos_bol);
     match In_channel.input_line ?fix_win_eol:(Some true) file with
@@ -60,6 +64,7 @@ let print_error_location file start =
 
         | None -> ()
 
+(* Pretty print all errors *)
 let rec print_errors file = function
     | [] -> ()
     | e :: es -> (

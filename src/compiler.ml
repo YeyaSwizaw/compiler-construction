@@ -3,6 +3,7 @@
 
 open Lexing
 
+(* Run the compiler on a given file *)
 let run ?parser_callback ?filename file =
     let lexbuf = Lexing.from_channel file in
     begin match filename with

@@ -25,7 +25,7 @@ and expr =
     | Apply of apply_spec
     | Assignment of string * value_item
 
-(* Printing *)
+(* Pretty printing functions*)
 let rec print_args = function
     | [] -> ()
     | a :: args -> print_string a; print_string " -> "; print_args args;;
