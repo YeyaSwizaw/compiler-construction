@@ -19,6 +19,10 @@ open Errors
 %token DIVIDE
 %token PLUS
 %token STAR
+%token LT
+%token GT
+%token EQ
+%token ITE
 
 (* End of file *)
 %token EOF
@@ -48,6 +52,8 @@ expr:
     | a = assignment { a }
     | LPAREN; c = callspec_tail { c }
 
+    (* This (with the case in value) produces reduce/reduce conflicts.
+     * They are harmless and only in error handling *)
     | error { Errors.Err([Errors.expected_expression $startpos $endpos]) }
 
 value:
@@ -57,6 +63,9 @@ value:
     | s = STRING { Errors.Ok(Syntax.Value (Syntax.String s)) }
 
     | p = UNTERMINATED_STRING { Errors.Err([Errors.unterminated_string p]) }
+
+    (* This (with the case in expr) produces reduce/reduce conflicts.
+     * They are harmless and only in error handling *)
     | error { Errors.Err([Errors.expected_value $startpos $endpos]) }
 
 op:
@@ -64,6 +73,10 @@ op:
     | DIVIDE { Errors.Ok(Syntax.Op Syntax.Divide) }
     | PLUS { Errors.Ok(Syntax.Op Syntax.Plus) }
     | STAR { Errors.Ok(Syntax.Op Syntax.Star) }
+    | LT { Errors.Ok(Syntax.Op Syntax.Lt) }
+    | GT { Errors.Ok(Syntax.Op Syntax.Gt) }
+    | EQ { Errors.Ok(Syntax.Op Syntax.Eq) }
+    | ITE { Errors.Ok(Syntax.Op Syntax.IfThenElse) }
 
 callspec_tail:
     | c = callspec; RPAREN {

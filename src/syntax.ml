@@ -12,6 +12,10 @@ type op_item =
     | Divide
     | Plus
     | Star
+    | Lt
+    | Gt
+    | Eq
+    | IfThenElse
 
 type value_item =
     | Int of int
@@ -49,6 +53,10 @@ let rec print_expr = function
         | Divide -> print_string "/"
         | Plus -> print_string "+"
         | Star -> print_string "*"
+        | Lt -> print_string "<"
+        | Gt -> print_string ">"
+        | Eq -> print_string "="
+        | IfThenElse -> print_string "?"
     end
 
     | Apply s -> begin match s with

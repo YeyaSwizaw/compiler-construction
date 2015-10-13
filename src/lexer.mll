@@ -39,6 +39,10 @@ rule read =
         | '/' { DIVIDE }
         | '+' { PLUS }
         | '*' { STAR }
+        | '<' { LT }
+        | '>' { GT }
+        | '=' { EQ }
+        | '?' { ITE }
         | '#' { read_comment lexbuf } 
         | eof { EOF }
         | _ { ERROR (Lexing.lexeme lexbuf) }

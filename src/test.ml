@@ -31,6 +31,10 @@ let rec stringify = function
         | Op Divide -> "Op[/] " ^ (stringify es)
         | Op Plus -> "Op[+] " ^ (stringify es)
         | Op Star -> "Op[*] " ^ (stringify es)
+        | Op Lt -> "Op[<] " ^ (stringify es)
+        | Op Gt -> "Op[>] " ^ (stringify es)
+        | Op Eq -> "Op[=] " ^ (stringify es)
+        | Op IfThenElse -> "Op[?] " ^ (stringify es)
 
         | Apply (Partial n) -> "Apply[" ^ (string_of_int n) ^ " ]" ^ (stringify es)
         | Apply Full -> "Apply[] " ^ (stringify es)
@@ -122,6 +126,10 @@ let () =
         parser_test "-" (Ok [Op Minus]);
         parser_test "*" (Ok [Op Star]);
         parser_test "/" (Ok [Op Divide]);
+        parser_test "<" (Ok [Op Lt]);
+        parser_test ">" (Ok [Op Gt]);
+        parser_test "=" (Ok [Op Eq]);
+        parser_test "?" (Ok [Op IfThenElse]);
 
         parser_test "()" (Ok [Apply Full]);
         parser_test "(*)" (Ok [Apply Total]);
