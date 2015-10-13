@@ -23,6 +23,7 @@ let rec stringify = function
     | [] -> ""
     | expr :: es -> match expr with
         | Value (Int n) -> "Val[" ^ (string_of_int n) ^ "] " ^ (stringify es)
+        | Value (Char c) -> "Char[" ^ (String.make 1 c) ^ "] " ^ (stringify es)
         | Value (Ident s) -> "Val[" ^ s ^ "] " ^ (stringify es)
         | Value (String s) -> "Str[" ^ s ^ "] " ^ (stringify es)
         | Value (Function (args, es')) -> "Val[" ^ (String.concat ~sep:" -> " args) ^ " -> {" ^ (stringify es') ^ "}] " ^ (stringify es)
@@ -74,6 +75,7 @@ let parser_test code output =
             | Ok(()) -> ()
             | Err(errs) -> result := Err (map (fun err -> match err with
                 | UnterminatedLBrace p
+                | UnterminatedChar p
                 | UnterminatedString p -> ((p.pos_lnum, p.pos_cnum - p.pos_bol), (p.pos_lnum, p.pos_cnum - p.pos_bol))
                 | SyntaxError (sp, fp, _) -> ((sp.pos_lnum, sp.pos_cnum - sp.pos_bol), (fp.pos_lnum, fp.pos_cnum - fp.pos_bol))
             ) errs)
@@ -91,24 +93,31 @@ let () =
     let rec check_tests n = function
         | [] -> ()
         | test::tests -> (
-            begin match test () with
-                | Success -> (
-                    print_string "\r[1;37m[Test ";
-                    print_int n;
-                    print_string "][0m Passed";
-                    flush stdout
-                )
+            try
+                begin match test () with
+                    | Success -> (
+                        print_string "\r[1;37m[Test ";
+                        print_int n;
+                        print_string "][0m Passed";
+                        flush stdout
+                    )
 
-                | Failure f -> (
+                    | Failure f -> (
+                        print_string "\r[1;31m[Test ";
+                        print_int n;
+                        print_endline "][0m Failed";
+                        print_endline (f ());
+                        print_newline ()
+                    )
+                end;
+
+                check_tests (n + 1) tests
+            with
+                _ -> (
                     print_string "\r[1;31m[Test ";
                     print_int n;
-                    print_endline "][0m Failed";
-                    print_endline (f ());
-                    print_newline ()
+                    print_endline "][0m Threw Unexpected Exception";
                 )
-            end;
-
-            check_tests (n + 1) tests
         )
     in
 
@@ -117,10 +126,12 @@ let () =
 
         parser_test "5" (Ok [Value (Int 5)]);
         parser_test "1355" (Ok [Value (Int 1355)]);
+        parser_test "'c'" (Ok [Value (Char 'c')]);
         parser_test "e" (Ok [Value (Ident "e")]);
         parser_test "apple" (Ok [Value (Ident "apple")]);
         parser_test "a54fd32le" (Ok [Value (Ident "a54fd32le")]);
         parser_test "\"hello there\"" (Ok [Value (String "hello there")]);
+        parser_test "\"apple\npie\"" (Ok [Value (String "apple\npie")]);
 
         parser_test "+" (Ok [Op Plus]);
         parser_test "-" (Ok [Op Minus]);
@@ -155,6 +166,8 @@ let () =
 
         parser_test ";" (Err [(1, 0), (1, 1)]);
         parser_test "1\n(corn" (Err [(2, 1), (2, 5)]);
+        parser_test "'ab'" (Err [(1, 0), (1, 0); (1, 3), (1, 3)]);
+        parser_test "'\n15 \"a" (Err [(1, 0), (1, 0); (2, 3), (2, 3)]);
         parser_test "12 13 ~\n(" (Err [(1, 6), (1, 7); (2, 1), (2, 1)]);
         parser_test "56\n45 \"hello\n\narc" (Err [(2, 3), (2, 3)]);
         parser_test "{\n6" (Err [(1, 0), (1, 0)]);

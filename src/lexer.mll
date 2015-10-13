@@ -14,6 +14,9 @@ let next_line lexbuf =
                    pos_lnum = pos.pos_lnum + 1
         }
 
+(* Position of previous char (for error handling) *)
+let prev_pos lexbuf = { lexbuf.lex_curr_p with pos_cnum = lexbuf.lex_curr_pos - 1 }
+
 }
 
 let int = '-'? ['0'-'9']+
@@ -30,10 +33,11 @@ rule read =
         | ident { IDENT (Lexing.lexeme lexbuf) }
         | '(' { LPAREN }
         | ')' { RPAREN }
-        | '{' { LBRACE ({lexbuf.lex_curr_p with pos_cnum = lexbuf.lex_curr_pos - 1}) }
+        | '{' { LBRACE (prev_pos lexbuf) }
         | '}' { RBRACE }
         | ':' { COLON }
-        | '"' { read_string ({lexbuf.lex_curr_p with pos_cnum = lexbuf.lex_curr_pos - 1}) (Buffer.create 17) lexbuf }
+        | '"' { read_string (prev_pos lexbuf) (Buffer.create 17) lexbuf }
+        | ''' { read_character (prev_pos lexbuf) lexbuf }
         | "->" { ARROW }
         | '-' { SUB }
         | '/' { DIVIDE }
@@ -51,12 +55,30 @@ and read_string start buf =
     parse
         | '"' { STRING (Buffer.contents buf) }
 
+        | line { 
+            next_line lexbuf; 
+            Buffer.add_char buf '\n';
+            read_string start buf lexbuf
+        }
+
         | [^ '"' '\\']+ {
             Buffer.add_string buf (Lexing.lexeme lexbuf);
             read_string start buf lexbuf
         }
 
         | eof { UNTERMINATED_STRING start }
+
+and read_character start =
+    parse
+        | line { next_line lexbuf; end_character start '\n' lexbuf }
+        | eof { UNTERMINATED_CHAR start }
+        | _ { end_character start (Lexing.lexeme lexbuf).[0] lexbuf }
+
+and end_character start ch =
+    parse
+        | ''' { CHAR ch }
+        | line { next_line lexbuf; UNTERMINATED_CHAR start }
+        | _ { UNTERMINATED_CHAR start }
 
 and read_comment =
     parse

@@ -14,6 +14,7 @@ type syntax_error_t =
 type error =
     | UnterminatedLBrace of Lexing.position
     | UnterminatedString of Lexing.position
+    | UnterminatedChar of Lexing.position
     | SyntaxError of Lexing.position * Lexing.position * syntax_error_t
 
 (* Generic result type *)
@@ -25,6 +26,7 @@ type 'a parse_result = ('a, (error list)) result
 
 let unterminated_lbrace p = UnterminatedLBrace p
 let unterminated_string p = UnterminatedString p
+let unterminated_char p = UnterminatedChar p
 let expected_expression b e = SyntaxError (b, e, ExpectedExpression)
 let expected_value b e = SyntaxError (b, e, ExpectedValue)
 let expected_callspec b e = SyntaxError (b, e, ExpectedCallspec)
@@ -75,6 +77,13 @@ let rec print_errors file = function
                 print_string "[1;35m["; print_position pos; print_string "][0m ";
                 print_newline ();
                 print_endline "Unterminated string literal: expected closing [1;37m'\"'[0m";
+                print_error_location file pos
+            )
+
+            | UnterminatedChar pos -> (
+                print_string "[1;35m["; print_position pos; print_string "][0m ";
+                print_newline ();
+                print_endline "Unterminated character literal: expected closing [1;37m'''[0m";
                 print_error_location file pos
             )
 

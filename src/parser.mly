@@ -7,6 +7,7 @@ open Errors
 
 (* Symbol Tokens *)
 %token <int> INT
+%token <char> CHAR
 %token <string> IDENT
 %token <string> STRING
 %token LPAREN
@@ -29,6 +30,7 @@ open Errors
 
 (* Error handling tokens *)
 %token <Lexing.position> UNTERMINATED_STRING
+%token <Lexing.position> UNTERMINATED_CHAR
 %token <string> ERROR (* Generic catch all to stop lexer errors *)
 
 (* Start symbol - either a list of expressions or a list of errors *)
@@ -38,6 +40,7 @@ open Errors
 
 program:
     | EOF { Ok([]) }
+
     | e = expr; p = program { 
         match (e, p) with
             | (Errors.Ok(e'), Errors.Ok(p')) -> Ok(e' :: p')
@@ -59,10 +62,12 @@ expr:
 value:
     | f = func { f }
     | i = INT { Errors.Ok(Syntax.Value (Syntax.Int i)) }
+    | c = CHAR { Errors.Ok(Syntax.Value (Syntax.Char c)) }
     | i = IDENT { Errors.Ok(Syntax.Value (Syntax.Ident i)) }
     | s = STRING { Errors.Ok(Syntax.Value (Syntax.String s)) }
 
     | p = UNTERMINATED_STRING { Errors.Err([Errors.unterminated_string p]) }
+    | p = UNTERMINATED_CHAR { Errors.Err([Errors.unterminated_char p]) }
 
     (* This (with the case in expr) produces reduce/reduce conflicts.
      * They are harmless and only in error handling *)
