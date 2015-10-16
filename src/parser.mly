@@ -10,9 +10,10 @@ open Errors
 %token <char> CHAR
 %token <string> IDENT
 %token <string> STRING
-%token LPAREN
-%token RPAREN
 %token <Lexing.position> LBRACE (* Position for unterminated brace errors *)
+%token <int> PARTIAL_CALLSPEC
+%token FULL_CALLSPEC
+%token TOTAL_CALLSPEC
 %token RBRACE
 %token COLON
 %token ARROW
@@ -31,6 +32,7 @@ open Errors
 (* Error handling tokens *)
 %token <Lexing.position> UNTERMINATED_STRING
 %token <Lexing.position> UNTERMINATED_CHAR
+%token <Lexing.position> INVALID_CALLSPEC
 %token <string> ERROR (* Generic catch all to stop lexer errors *)
 
 (* Start symbol - either a list of expressions or a list of errors *)
@@ -52,8 +54,8 @@ program:
 expr:
     | v = value { v }
     | o = op { o }
+    | c = callspec { c }
     | a = assignment { a }
-    | LPAREN; c = callspec_tail { c }
 
     (* This (with the case in value) produces reduce/reduce conflicts.
      * They are harmless and only in error handling *)
@@ -83,21 +85,13 @@ op:
     | EQ { Errors.Ok(Syntax.Op Syntax.Eq) }
     | ITE { Errors.Ok(Syntax.Op Syntax.IfThenElse) }
 
-callspec_tail:
-    | c = callspec; RPAREN {
-        match c with
-            | Errors.Ok(c') -> Errors.Ok(Syntax.Apply c')
-            | Errors.Err(err) -> Errors.Err(err)
-    }
-
-    | error { Errors.Err([Errors.expected_rparen $startpos $endpos]) }
 
 callspec:
-    | i = INT { Errors.Ok(Syntax.Partial(i)) }
-    | STAR { Errors.Ok(Syntax.Total) }
-    | { Errors.Ok(Syntax.Full) }
+    | i = PARTIAL_CALLSPEC { Errors.Ok (Syntax.Apply (Syntax.Partial i)) }
+    | FULL_CALLSPEC { Errors.Ok (Syntax.Apply Syntax.Full) }
+    | TOTAL_CALLSPEC { Errors.Ok (Syntax.Apply Syntax.Total) }
 
-    | error { Errors.Err([Errors.expected_callspec $startpos $endpos]) }
+    | e = INVALID_CALLSPEC { Errors.Err([Errors.invalid_callspec e]) }
 
 assignment:
     | i = IDENT; COLON; v = value { 

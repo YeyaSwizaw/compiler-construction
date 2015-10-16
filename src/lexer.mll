@@ -31,8 +31,7 @@ rule read =
         | line { next_line lexbuf; read lexbuf }
         | int { INT (int_of_string (Lexing.lexeme lexbuf)) }
         | ident { IDENT (Lexing.lexeme lexbuf) }
-        | '(' { LPAREN }
-        | ')' { RPAREN }
+        | '(' { read_callspec (prev_pos lexbuf) lexbuf }
         | '{' { LBRACE (prev_pos lexbuf) }
         | '}' { RBRACE }
         | ':' { COLON }
@@ -78,7 +77,24 @@ and end_character start ch =
     parse
         | ''' { CHAR ch }
         | line { next_line lexbuf; UNTERMINATED_CHAR start }
+        | eof { UNTERMINATED_CHAR start }
         | _ { UNTERMINATED_CHAR start }
+
+and read_callspec start = 
+    parse
+        | ')' { FULL_CALLSPEC }
+        | '*' { end_callspec start TOTAL_CALLSPEC lexbuf }
+        | int { end_callspec start (PARTIAL_CALLSPEC (int_of_string (Lexing.lexeme lexbuf))) lexbuf }
+        | line { next_line lexbuf; INVALID_CALLSPEC start }
+        | eof { INVALID_CALLSPEC start }
+        | _ { INVALID_CALLSPEC start }
+
+and end_callspec start tok =
+    parse
+        | ')' { tok }
+        | line { next_line lexbuf; INVALID_CALLSPEC start }
+        | eof { INVALID_CALLSPEC start }
+        | _ { INVALID_CALLSPEC start }
 
 and read_comment =
     parse

@@ -8,13 +8,12 @@ open Lexing
 type syntax_error_t =
     | ExpectedExpression
     | ExpectedValue
-    | ExpectedCallspec
-    | ExpectedRParen
 
 type error =
     | UnterminatedLBrace of Lexing.position
     | UnterminatedString of Lexing.position
     | UnterminatedChar of Lexing.position
+    | InvalidCallspec of Lexing.position
     | SyntaxError of Lexing.position * Lexing.position * syntax_error_t
 
 (* Generic result type *)
@@ -27,10 +26,9 @@ type 'a parse_result = ('a, (error list)) result
 let unterminated_lbrace p = UnterminatedLBrace p
 let unterminated_string p = UnterminatedString p
 let unterminated_char p = UnterminatedChar p
+let invalid_callspec p = InvalidCallspec p
 let expected_expression b e = SyntaxError (b, e, ExpectedExpression)
 let expected_value b e = SyntaxError (b, e, ExpectedValue)
-let expected_callspec b e = SyntaxError (b, e, ExpectedCallspec)
-let expected_rparen b e = SyntaxError (b, e, ExpectedRParen)
 
 (* Helpful error pretty printing functions *)
 let print_position p = 
@@ -94,6 +92,13 @@ let rec print_errors file = function
                 print_error_location file pos
             )
 
+            | InvalidCallspec pos -> (
+                print_string "[1;35m["; print_position pos; print_string "][0m ";
+                print_newline ();
+                print_endline "Invalid application: expected [1;37m'()'[0m, [1;37m'(*)'[0m, or [1;37m'(n)'[0m";
+                print_error_location file pos
+            )
+
             | SyntaxError (start, finish, ExpectedExpression) -> (
                 print_string "[1;35m["; print_position start; print_string "][0m ";
                 print_newline ();
@@ -107,24 +112,6 @@ let rec print_errors file = function
                 print_string "[1;35m["; print_position start; print_string "][0m ";
                 print_newline ();
                 print_string "Expected value, found: [1;37m'"; 
-                print_error_in_file file start.pos_cnum finish.pos_cnum;
-                print_endline "'[0m";
-                print_error_location file start
-            )
-
-            | SyntaxError (start, finish, ExpectedCallspec) -> (
-                print_string "[1;35m["; print_position start; print_string "][0m ";
-                print_newline ();
-                print_string "Expected number, '*', or ')', found: [1;37m'";
-                print_error_in_file file start.pos_cnum finish.pos_cnum;
-                print_endline "'[0m";
-                print_error_location file start
-            )
-
-            | SyntaxError (start, finish, ExpectedRParen) -> (
-                print_string "[1;35m["; print_position start; print_string "][0m ";
-                print_newline ();
-                print_string "Expected ')', found: [1;37m'";
                 print_error_in_file file start.pos_cnum finish.pos_cnum;
                 print_endline "'[0m";
                 print_error_location file start

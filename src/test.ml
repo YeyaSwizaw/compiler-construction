@@ -76,7 +76,8 @@ let parser_test code output =
             | Err(errs) -> result := Err (map (fun err -> match err with
                 | UnterminatedLBrace p
                 | UnterminatedChar p
-                | UnterminatedString p -> ((p.pos_lnum, p.pos_cnum - p.pos_bol), (p.pos_lnum, p.pos_cnum - p.pos_bol))
+                | UnterminatedString p
+                | InvalidCallspec p -> ((p.pos_lnum, p.pos_cnum - p.pos_bol), (p.pos_lnum, p.pos_cnum - p.pos_bol))
                 | SyntaxError (sp, fp, _) -> ((sp.pos_lnum, sp.pos_cnum - sp.pos_bol), (fp.pos_lnum, fp.pos_cnum - fp.pos_bol))
             ) errs)
         end;
@@ -113,10 +114,12 @@ let () =
 
                 check_tests (n + 1) tests
             with
-                _ -> (
+                e -> (
                     print_string "\r[1;31m[Test ";
                     print_int n;
-                    print_endline "][0m Threw Unexpected Exception";
+                    print_endline ("][0m Threw: " ^ (Sexp.to_string_hum (sexp_of_exn e)));
+
+                    check_tests (n + 1) tests
                 )
         )
     in
@@ -165,13 +168,15 @@ let () =
         parser_test "15 arc\nswap: a -> b -> {\n    a b\n}\nswap (*)" (Ok [Value (Int 15); Value (Ident "arc"); Assignment ("swap", Function (["a"; "b"], [Value (Ident "a"); Value (Ident "b")])); Value (Ident "swap"); Apply Total]);
 
         parser_test ";" (Err [(1, 0), (1, 1)]);
-        parser_test "1\n(corn" (Err [(2, 1), (2, 5)]);
+        parser_test "1\n(corn" (Err [(2, 0), (2, 0)]);
         parser_test "'ab'" (Err [(1, 0), (1, 0); (1, 3), (1, 3)]);
         parser_test "'\n15 \"a" (Err [(1, 0), (1, 0); (2, 3), (2, 3)]);
-        parser_test "12 13 ~\n(" (Err [(1, 6), (1, 7); (2, 1), (2, 1)]);
+        parser_test "12 13 ~\n(" (Err [(1, 6), (1, 7); (2, 0), (2, 0)]);
         parser_test "56\n45 \"hello\n\narc" (Err [(2, 3), (2, 3)]);
         parser_test "{\n6" (Err [(1, 0), (1, 0)]);
         parser_test "6\na -> {" (Err [(2, 5), (2, 5)]);
+        parser_test "(" (Err [(1, 0), (1, 0)]);
+        parser_test "54;\na -> {\n  5 4 + ( );\n}" (Err [(1, 2), (1, 3); (3, 8), (3, 8); (3, 10), (3, 11); (3, 11), (3, 12)]);
     ] in
 
     check_tests 1 tests
