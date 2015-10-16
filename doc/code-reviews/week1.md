@@ -12,3 +12,7 @@ It was also suggeted that I use the Makefile to install library dependences,
 however this is not something that I like the idea of, as it gets messy
 when a user wants to install dependancies their own way, which is the usual
 case anyway.
+
+In addition to this, I will likely apply some of the positive feedback that I gave.
+I particularly liked how my partner had set up travis-ci to do automated testing, and
+this is very likely something I will also do.
