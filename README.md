@@ -57,6 +57,8 @@ swap: a -> b -> {
 
 This can also be used with non-function values, however it is most useful for defining reusable functions.
 
+Runnable examples can be found in ```doc/examples``` in the repository.
+
 ## Reference
 Values can be integers, "strings" 'chars' or functions.
 
