@@ -3,10 +3,11 @@ implemented in OCaml for my third year Compiler Construction module.
 
 ## Compilation
 
-The only dependency is Core, which can be installed using opam:
+There are two dependancies, which can easily be installed using opam:
 
 ```
 # opam install core
+# opam install ansiterminal
 ```
 
 A Makefile is provided for easy compilation of both the compiler and the tests:

@@ -4,6 +4,8 @@
 open Core.Std
 open Lexing
 
+module AT = ANSITerminal
+
 (* Generic syntax errors *)
 type syntax_error_t =
     | ExpectedExpression
@@ -31,23 +33,21 @@ let expected_expression b e = SyntaxError (b, e, ExpectedExpression)
 let expected_value b e = SyntaxError (b, e, ExpectedValue)
 
 (* Helpful error pretty printing functions *)
-let print_position p = 
-    print_string (p.pos_fname ^ ":");
-    print_int p.pos_lnum;
-    print_string ":";
-    print_int (p.pos_cnum - p.pos_bol)
+let string_of_position p = p.pos_fname ^ ":" ^ (string_of_int p.pos_lnum) ^ ":" ^ (string_of_int (p.pos_cnum - p.pos_bol))
 
 (* Print complete error token *)
-let print_error_in_file file pos epos =
+let string_of_error_in_file file pos epos =
     In_channel.seek file (Int64.of_int pos);
+
+    let buf = Buffer.create 17 in
 
     let rec print_loop len = 
         begin match In_channel.input_char file with
-            | Some c -> print_char c
+            | Some c -> Buffer.add_char buf c
             | None -> ()
         end;
 
-        if len > 1 then print_loop (len - 1) else ()
+        if len > 1 then print_loop (len - 1) else (Buffer.contents buf);
     in
 
     print_loop (epos - pos)
@@ -58,8 +58,9 @@ let print_error_location file start =
     match In_channel.input_line ?fix_win_eol:(Some true) file with
         | Some line -> (
             print_newline ();
-            print_endline ("[1;26m" ^ line ^ "[0m");
-            print_endline ((String.make (start.pos_cnum - start.pos_bol) ' ') ^ "[1;31m^[0m")
+            AT.print_string [AT.Bold] line;
+            print_newline ();
+            AT.print_string [AT.Bold; AT.red] ((String.make (start.pos_cnum - start.pos_bol) ' ') ^ "^")
         )
 
         | None -> ()
@@ -68,52 +69,64 @@ let print_error_location file start =
 let rec print_errors file = function
     | [] -> ()
     | e :: es -> (
-        print_string "[1;31m[Error][0m";
+        AT.print_string [AT.Bold; AT.red] "[Error]";
 
         begin match e with
             | UnterminatedString pos -> (
-                print_string "[1;35m["; print_position pos; print_string "][0m ";
+                AT.print_string [AT.Bold; AT.blue] ("[" ^ string_of_position pos ^ "]");
                 print_newline ();
-                print_endline "Unterminated string literal: expected closing [1;37m'\"'[0m";
+                print_string "Unterminated string literal: expected closing ";
+                AT.print_string [AT.Bold] "'\"'";
+                print_newline ();
                 print_error_location file pos
             )
 
             | UnterminatedChar pos -> (
-                print_string "[1;35m["; print_position pos; print_string "][0m ";
+                AT.print_string [AT.Bold; AT.blue] ("[" ^ string_of_position pos ^ "]");
                 print_newline ();
-                print_endline "Unterminated character literal: expected closing [1;37m'''[0m";
+                print_string "Unterminated character literal: expected closing ";
+                AT.print_string [AT.Bold] "'''";
+                print_newline ();
                 print_error_location file pos
             )
 
             | UnterminatedLBrace pos -> (
-                print_string "[1;35m["; print_position pos; print_string "][0m ";
+                AT.print_string [AT.Bold; AT.blue] ("[" ^ string_of_position pos ^ "]");
                 print_newline ();
-                print_endline "Unterminated opening brace: expected [1;37m'}'[0m";
+                print_string "Unterminated opening brace: expected ";
+                AT.print_string [AT.Bold] "'}'";
+                print_newline ();
                 print_error_location file pos
             )
 
             | InvalidCallspec pos -> (
-                print_string "[1;35m["; print_position pos; print_string "][0m ";
+                AT.print_string [AT.Bold; AT.blue] ("[" ^ string_of_position pos ^ "]");
                 print_newline ();
-                print_endline "Invalid application: expected [1;37m'()'[0m, [1;37m'(*)'[0m, or [1;37m'(n)'[0m";
+                print_string "Invalid application: expected ";
+                AT.print_string [AT.Bold] "'()'";
+                print_string ", ";
+                AT.print_string [AT.Bold] "'(*)'";
+                print_string ", or";
+                AT.print_string [AT.Bold] "'(n)'";
+                print_newline ();
                 print_error_location file pos
             )
 
             | SyntaxError (start, finish, ExpectedExpression) -> (
-                print_string "[1;35m["; print_position start; print_string "][0m ";
+                AT.print_string [AT.Bold; AT.blue] ("[" ^ string_of_position start ^ "]");
                 print_newline ();
-                print_string "Expected expression, found: [1;37m'"; 
-                print_error_in_file file start.pos_cnum finish.pos_cnum;
-                print_endline "'[0m";
+                print_string "Expected expression, found: ";
+                AT.print_string [AT.Bold] ("'" ^ (string_of_error_in_file file start.pos_cnum finish.pos_cnum) ^ "'");
+                print_newline ();
                 print_error_location file start
             )
 
             | SyntaxError (start, finish, ExpectedValue) -> (
-                print_string "[1;35m["; print_position start; print_string "][0m ";
+                AT.print_string [AT.Bold; AT.blue] ("[" ^ string_of_position start ^ "]");
                 print_newline ();
-                print_string "Expected value, found: [1;37m'"; 
-                print_error_in_file file start.pos_cnum finish.pos_cnum;
-                print_endline "'[0m";
+                print_string "Expected value, found: ";
+                AT.print_string [AT.Bold] ("'" ^ (string_of_error_in_file file start.pos_cnum finish.pos_cnum) ^ "'");
+                print_newline ();
                 print_error_location file start
             )
         end;

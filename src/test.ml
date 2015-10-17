@@ -7,6 +7,8 @@ open Syntax
 open Errors
 open Lexing
 
+module AT = ANSITerminal
+
 type 'a test_result_t =
     | Success
     | Failure of 'a
@@ -97,31 +99,37 @@ let () =
             try
                 begin match test () with
                     | Success -> (
-                        print_string "\r[1;37m[Test ";
-                        print_int n;
-                        print_string "][0m Passed";
-                        flush stdout
+                        AT.restore_cursor ();
+
+                        AT.print_string [AT.Bold; AT.green] ("[Test " ^ (string_of_int n) ^ "]");
+                        print_string " Passed";
+                        AT.erase AT.Eol;
                     )
 
                     | Failure f -> (
-                        print_string "\r[1;31m[Test ";
-                        print_int n;
-                        print_endline "][0m Failed";
+                        AT.print_string [AT.Bold; AT.red] ("[Test " ^ (string_of_int n) ^ "]");
+                        print_string " Failed";
+                        AT.erase AT.Eol;
+                        print_newline ();
                         print_endline (f ());
-                        print_newline ()
+                        print_newline ();
+
+                        AT.save_cursor ();
                     )
                 end;
 
                 check_tests (n + 1) tests
             with
                 e -> (
-                    print_string "\r[1;31m[Test ";
-                    print_int n;
-                    print_endline ("][0m Threw: " ^ (Sexp.to_string_hum (sexp_of_exn e)));
+                    AT.print_string [AT.Bold; AT.red] ("[Test " ^ (string_of_int n) ^ "]");
+                    print_string (" Threw: " ^ (Sexp.to_string_hum (sexp_of_exn e)));
+                    AT.erase AT.Eol;
+                    print_newline ();
 
+                    AT.save_cursor ();
                     check_tests (n + 1) tests
                 )
-        )
+        );
     in
 
     let tests = [
@@ -179,5 +187,7 @@ let () =
         parser_test "54;\na -> {\n  5 4 + ( );\n}" (Err [(1, 2), (1, 3); (3, 8), (3, 8); (3, 10), (3, 11); (3, 11), (3, 12)]);
     ] in
 
-    check_tests 1 tests
+    AT.save_cursor ();
+    check_tests 1 tests;
+    print_newline ();
 

@@ -1,6 +1,10 @@
 SRCDIR = src
 
-OCAML = ocamlbuild -r -I $(SRCDIR) -use-menhir -use-ocamlfind -pkg core -tag thread -menhir "menhir -v"
+LIBS = \
+	core \
+	ANSITerminal
+
+OCAML = ocamlbuild -r -I $(SRCDIR) -use-menhir -use-ocamlfind $(addprefix -pkg , $(LIBS)) -tag thread -menhir "menhir -v"
 
 TARGET = sfl
 TESTTARGET = test
