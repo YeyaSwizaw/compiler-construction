@@ -12,6 +12,7 @@ type syntax_error_t =
     | ExpectedValue
 
 type error =
+    | RedefinedName of string * Lexing.position
     | UnterminatedLBrace of Lexing.position
     | UnterminatedString of Lexing.position
     | UnterminatedChar of Lexing.position
@@ -25,6 +26,7 @@ type ('a, 'b) result =
 
 type 'a parse_result = ('a, (error list)) result
 
+let redefined_name n p = RedefinedName (n, p)
 let unterminated_lbrace p = UnterminatedLBrace p
 let unterminated_string p = UnterminatedString p
 let unterminated_char p = UnterminatedChar p
@@ -72,6 +74,15 @@ let rec print_errors file = function
         AT.print_string [AT.Bold; AT.red] "[Error]";
 
         begin match e with
+            | RedefinedName (name, pos) -> (
+                AT.print_string [AT.Bold; AT.blue] ("[" ^ string_of_position pos ^ "]");
+                print_newline ();
+                print_string "Redefinition of name ";
+                AT.print_string [AT.Bold] ("'" ^ name ^ "'");
+                print_endline ". First defined here:";
+                print_error_location file pos
+            )
+
             | UnterminatedString pos -> (
                 AT.print_string [AT.Bold; AT.blue] ("[" ^ string_of_position pos ^ "]");
                 print_newline ();

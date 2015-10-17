@@ -3,6 +3,8 @@
 
 %{ 
 open Errors
+open Syntax
+open Syntax.Env
 %}
 
 (* Symbol Tokens *)
@@ -36,16 +38,30 @@ open Errors
 %token <string> ERROR (* Generic catch all to stop lexer errors *)
 
 (* Start symbol - either a list of expressions or a list of errors *)
-%start <(Syntax.expr list) Errors.parse_result> program
+%start <Syntax.program_t Errors.parse_result> program
 
 %%
 
 program:
-    | EOF { Ok([]) }
+    | EOF { Ok({env = Syntax.Env.empty; code = []}) }
 
     | e = expr; p = program { 
         match (e, p) with
-            | (Errors.Ok(e'), Errors.Ok(p')) -> Ok(e' :: p')
+            | (Errors.Ok(e'), Errors.Ok(p')) -> Errors.Ok({p' with code = (e' :: p'.code)})
+            | (Errors.Ok(_), Errors.Err(err))
+            | (Errors.Err(err), Errors.Ok(_)) -> Errors.Err(err)
+            | (Errors.Err(e1), Errors.Err(e2)) -> Errors.Err(e1 @ e2)
+    }
+
+    | a = assignment; p = program {
+        match (a, p) with
+            | (Errors.Ok((name, value)), Errors.Ok(p')) -> (
+                if (Syntax.Env.mem name p'.env) then
+                    Errors.Err([Errors.redefined_name name $startpos])
+                else
+                    Errors.Ok({p' with env = (Syntax.Env.add name value p'.env)})
+            )
+
             | (Errors.Ok(_), Errors.Err(err))
             | (Errors.Err(err), Errors.Ok(_)) -> Errors.Err(err)
             | (Errors.Err(e1), Errors.Err(e2)) -> Errors.Err(e1 @ e2)
@@ -55,7 +71,6 @@ expr:
     | v = value { v }
     | o = op { o }
     | c = callspec { c }
-    | a = assignment { a }
 
     (* This (with the case in value) produces reduce/reduce conflicts.
      * They are harmless and only in error handling *)
@@ -96,7 +111,7 @@ callspec:
 assignment:
     | i = IDENT; COLON; v = value { 
         match v with
-            | Errors.Ok(Syntax.Value v') -> Errors.Ok(Syntax.Assignment (i, v'))
+            | Errors.Ok(Syntax.Value v') -> Errors.Ok((i, v'))
             | Errors.Err(err) -> Errors.Err(err)
     }
 
@@ -113,16 +128,32 @@ func:
             | Errors.Err(err) -> Errors.Err(err)
     }
 
-func_arg_list:
-    | { [] }
-    | i = IDENT; ARROW; a = func_arg_list { i::a }
-
 func_body:
-    | { Errors.Ok([]) }
-    | e = expr; f = func_body { 
-        match (e, f) with
-            | (Errors.Ok(e'), Errors.Ok(f')) -> Ok(e' :: f')
+    | { Ok({env = Syntax.Env.empty; code = []}) }
+
+    | e = expr; p = func_body { 
+        match (e, p) with
+            | (Errors.Ok(e'), Errors.Ok(p')) -> Errors.Ok({p' with code = (e' :: p'.code)})
             | (Errors.Ok(_), Errors.Err(err))
             | (Errors.Err(err), Errors.Ok(_)) -> Errors.Err(err)
             | (Errors.Err(e1), Errors.Err(e2)) -> Errors.Err(e1 @ e2)
     }
+
+    | a = assignment; p = func_body {
+        match (a, p) with
+            | (Errors.Ok((name, value)), Errors.Ok(p')) -> (
+                if (Syntax.Env.mem name p'.env) then
+                    Errors.Err([Errors.redefined_name name $startpos])
+                else
+                    Errors.Ok({p' with env = (Syntax.Env.add name value p'.env)})
+            )
+
+            | (Errors.Ok(_), Errors.Err(err))
+            | (Errors.Err(err), Errors.Ok(_)) -> Errors.Err(err)
+            | (Errors.Err(e1), Errors.Err(e2)) -> Errors.Err(e1 @ e2)
+    }
+
+func_arg_list:
+    | { [] }
+    | i = IDENT; ARROW; a = func_arg_list { i::a }
+

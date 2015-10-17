@@ -2,6 +2,8 @@
 (* Samuel Sleight *)
 
 (* AST Types *)
+module Env = Map.Make(String)
+
 type apply_spec =
     | Partial of int
     | Full
@@ -22,13 +24,17 @@ type value_item =
     | Char of char
     | Ident of string
     | String of string
-    | Function of string list * expr list
+    | Function of string list * program_t
 
 and expr =
     | Value of value_item
     | Op of op_item
     | Apply of apply_spec
-    | Assignment of string * value_item
+
+and program_t = {
+    env: value_item Env.t;
+    code: expr list;
+}
 
 (* Pretty printing functions*)
 let rec print_args = function
@@ -67,12 +73,18 @@ let rec print_expr = function
         | Total -> print_string "(*)"
     end
 
-    | Assignment (name, value) -> begin
-        print_string name;
-        print_string ": ";
-        print_expr (Value value);
-    end
-
-and print_prog = function
+and print_exprs = function
     | [] -> ()
-    | e :: prog -> print_expr e; print_newline (); print_prog prog;;
+    | e :: es -> print_expr e; print_newline (); print_exprs es
+
+and print_env code = 
+    Env.iter (fun name value -> (
+        print_string (name ^ ": "); 
+        print_expr (Value value); 
+        print_newline ())
+    ) code
+
+and print_prog prog = (
+    print_env prog.env;
+    print_exprs prog.code 
+)
