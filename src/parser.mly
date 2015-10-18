@@ -68,7 +68,11 @@ program:
     }
 
 expr:
-    | v = value { v }
+    | v = value { match v with
+        | Errors.Ok (value, pos) -> Errors.Ok ({location=pos; data=(Syntax.Value value)})
+        | Errors.Err errs -> Errors.Err errs
+    }
+
     | o = op { o }
     | c = callspec { c }
 
@@ -78,10 +82,10 @@ expr:
 
 value:
     | f = func { f }
-    | i = INT { Errors.Ok(Syntax.Value (Syntax.Int i)) }
-    | c = CHAR { Errors.Ok(Syntax.Value (Syntax.Char c)) }
-    | i = IDENT { Errors.Ok(Syntax.Value (Syntax.Ident i)) }
-    | s = STRING { Errors.Ok(Syntax.Value (Syntax.String s)) }
+    | i = INT { Errors.Ok (Syntax.Int i, $startpos) }
+    | c = CHAR { Errors.Ok (Syntax.Char c, $startpos) }
+    | i = IDENT { Errors.Ok (Syntax.Ident i, $startpos) }
+    | s = STRING { Errors.Ok (Syntax.String s, $startpos) }
 
     | p = UNTERMINATED_STRING { Errors.Err([Errors.unterminated_string p]) }
     | p = UNTERMINATED_CHAR { Errors.Err([Errors.unterminated_char p]) }
@@ -91,28 +95,27 @@ value:
     | error { Errors.Err([Errors.expected_value $startpos $endpos]) }
 
 op:
-    | SUB { Errors.Ok(Syntax.Op Syntax.Minus) }
-    | DIVIDE { Errors.Ok(Syntax.Op Syntax.Divide) }
-    | PLUS { Errors.Ok(Syntax.Op Syntax.Plus) }
-    | STAR { Errors.Ok(Syntax.Op Syntax.Star) }
-    | LT { Errors.Ok(Syntax.Op Syntax.Lt) }
-    | GT { Errors.Ok(Syntax.Op Syntax.Gt) }
-    | EQ { Errors.Ok(Syntax.Op Syntax.Eq) }
-    | ITE { Errors.Ok(Syntax.Op Syntax.IfThenElse) }
-
+    | SUB { Errors.Ok (Syntax.op_chunk Syntax.Minus $startpos) }
+    | DIVIDE { Errors.Ok (Syntax.op_chunk Syntax.Divide $startpos) }
+    | PLUS { Errors.Ok (Syntax.op_chunk Syntax.Plus $startpos) }
+    | STAR { Errors.Ok (Syntax.op_chunk Syntax.Times $startpos) }
+    | LT { Errors.Ok (Syntax.op_chunk Syntax.Lt $startpos) }
+    | GT { Errors.Ok (Syntax.op_chunk Syntax.Gt $startpos) }
+    | EQ { Errors.Ok (Syntax.op_chunk Syntax.Eq $startpos) }
+    | ITE { Errors.Ok (Syntax.op_chunk Syntax.IfThenElse $startpos) }
 
 callspec:
-    | i = PARTIAL_CALLSPEC { Errors.Ok (Syntax.Apply (Syntax.Partial i)) }
-    | FULL_CALLSPEC { Errors.Ok (Syntax.Apply Syntax.Full) }
-    | TOTAL_CALLSPEC { Errors.Ok (Syntax.Apply Syntax.Total) }
+    | i = PARTIAL_CALLSPEC { Errors.Ok (Syntax.callspec_chunk (Syntax.Partial i) $startpos) }
+    | FULL_CALLSPEC { Errors.Ok (Syntax.callspec_chunk Syntax.Full $startpos) }
+    | TOTAL_CALLSPEC { Errors.Ok (Syntax.callspec_chunk Syntax.Total $startpos) }
 
     | e = INVALID_CALLSPEC { Errors.Err([Errors.invalid_callspec e]) }
 
 assignment:
     | i = IDENT; COLON; v = value { 
         match v with
-            | Errors.Ok(Syntax.Value v') -> Errors.Ok((i, v'))
-            | Errors.Err(err) -> Errors.Err(err)
+            | Errors.Ok (value, position) -> Errors.Ok((i, {location=position; data=value}))
+            | Errors.Err err -> Errors.Err(err)
     }
 
 func:
@@ -124,7 +127,7 @@ func:
 
     | a = func_arg_list; LBRACE; b = func_body; RBRACE { 
         match b with
-            | Errors.Ok(b') -> Errors.Ok(Syntax.Value (Syntax.Function (a, b'))) 
+            | Errors.Ok(b') -> Errors.Ok (Syntax.Function (a, b'), $startpos) 
             | Errors.Err(err) -> Errors.Err(err)
     }
 

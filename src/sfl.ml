@@ -10,7 +10,7 @@ let run filename () =
 
         (* Run the compiler *)
         let result = Compiler.run 
-            ~parser_callback:(Syntax.print_prog) (* Print parsed expressions *)
+            ~parser_callback:(fun prog -> print_string (Syntax.string_of_prog prog); true) (* Print parsed expressions *)
             ~filename: filename
             chan 
         in

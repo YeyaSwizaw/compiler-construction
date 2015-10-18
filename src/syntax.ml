@@ -1,8 +1,19 @@
 (* Compiler Construction - syntax.ml *)
 (* Samuel Sleight *)
 
+open List
+
 (* AST Types *)
 module Env = Map.Make(String)
+
+type 'a chunk = {
+    location: Lexing.position;
+    data: 'a
+}
+
+let rec dechunk = function
+    | [] -> []
+    | h :: t -> h.data :: dechunk t
 
 type apply_spec =
     | Partial of int
@@ -13,7 +24,7 @@ type op_item =
     | Minus
     | Divide
     | Plus
-    | Star
+    | Times
     | Lt
     | Gt
     | Eq
@@ -32,59 +43,49 @@ and expr =
     | Apply of apply_spec
 
 and program_t = {
-    env: value_item Env.t;
-    code: expr list;
+    env: (value_item chunk) Env.t;
+    code: (expr chunk) list;
 }
 
-(* Pretty printing functions*)
+(* Chunk functions *)
+let op_chunk op pos = { location=pos; data=(Op op) }
+let callspec_chunk spec pos = { location=pos; data=(Apply spec) }
+
+(* To string functions *)
 let rec print_args = function
     | [] -> ()
     | a :: args -> print_string a; print_string " -> "; print_args args;;
 
-let rec print_expr = function
+let rec string_of_expr = function
     | Value v -> begin match v with
-        | Int i -> print_int i
-        | Char c -> print_char c
-        | Ident s -> print_string s
-        | String s -> print_string ("\"" ^ s ^ "\"")
-        | Function (args, body) -> begin
-            print_args args;
-            print_string "{";
-            print_newline ();
-            print_prog body;
-            print_string "}";
-        end
+        | Int i -> "Int[" ^ (string_of_int i) ^ "]"
+        | Char c -> "Char[" ^ (String.make 1 c) ^ "]"
+        | Ident s -> "Id[" ^ s ^ "]"
+        | String s -> "Str[" ^ s ^ "]"
+
+        | Function (args, body) -> 
+            (fold_left (fun acc arg -> acc ^ arg ^ " -> ") "Fn[" args) ^ "{" ^ (string_of_prog body) ^ "}]"
     end
-        
+
     | Op o -> begin match o with
-        | Minus -> print_string "-"
-        | Divide -> print_string "/"
-        | Plus -> print_string "+"
-        | Star -> print_string "*"
-        | Lt -> print_string "<"
-        | Gt -> print_string ">"
-        | Eq -> print_string "="
-        | IfThenElse -> print_string "?"
+        | Minus -> "Op[-]"
+        | Divide -> "Op[/]"
+        | Plus -> "Op[+]"
+        | Times -> "Op[*]"
+        | Lt -> "Op[<]"
+        | Gt -> "Op[>]"
+        | Eq -> "Op[=]"
+        | IfThenElse -> "Op[?]"
     end
 
     | Apply s -> begin match s with
-        | Partial n -> print_string "("; print_int n; print_string ")"
-        | Full -> print_string "()"
-        | Total -> print_string "(*)"
+        | Partial n -> "Apply[" ^ (string_of_int n) ^ "]"
+        | Full -> "Apply[]"
+        | Total -> "Apply[*]"
     end
 
-and print_exprs = function
-    | [] -> ()
-    | e :: es -> print_expr e; print_newline (); print_exprs es
+and string_of_exprs ls = fold_left (fun acc expr -> acc ^ string_of_expr expr) "" ls
 
-and print_env code = 
-    Env.iter (fun name value -> (
-        print_string (name ^ ": "); 
-        print_expr (Value value); 
-        print_newline ())
-    ) code
+and string_of_env ls = fold_left (fun acc (name, value) -> acc ^ "Name[" ^ name ^ ":" ^ (string_of_expr (Value value.data)) ^ "]") "" ls
 
-and print_prog prog = (
-    print_env prog.env;
-    print_exprs prog.code 
-)
+and string_of_prog prog = (string_of_env (Env.bindings prog.env)) ^ (string_of_exprs (dechunk prog.code))

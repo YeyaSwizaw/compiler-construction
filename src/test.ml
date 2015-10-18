@@ -20,42 +20,6 @@ let test_expect fail_f test_f expected =
         if result = expected then Success else Failure (fail_f result expected)
     )
 
-(* Print test result expression *)
-let rec stringify_prog prog = (stringify_env (Syntax.Env.bindings prog.env)) ^ "\n" ^ (stringify prog.code)
-
-and stringify_env = function
-    | [] -> ""
-    | (name, value) :: items -> name ^ ": " ^ (
-            match value with
-                | Int n -> "Val[" ^ (string_of_int n) ^ "] " ^ (stringify_env items)
-                | Char c -> "Char[" ^ (String.make 1 c) ^ "] " ^ (stringify_env items)
-                | Ident s -> "Val[" ^ s ^ "] " ^ (stringify_env items)
-                | String s -> "Str[" ^ s ^ "] " ^ (stringify_env items)
-                | Function (args, es') -> "Fn[" ^ (String.concat ~sep:" -> " args) ^ " -> {" ^ (stringify_prog es') ^ "}] " ^ (stringify_env items)
-    )
-
-and stringify = function
-    | [] -> ""
-    | expr :: es -> match expr with
-        | Value (Int n) -> "Val[" ^ (string_of_int n) ^ "] " ^ (stringify es)
-        | Value (Char c) -> "Char[" ^ (String.make 1 c) ^ "] " ^ (stringify es)
-        | Value (Ident s) -> "Val[" ^ s ^ "] " ^ (stringify es)
-        | Value (String s) -> "Str[" ^ s ^ "] " ^ (stringify es)
-        | Value (Function (args, es')) -> "Fn[" ^ (String.concat ~sep:" -> " args) ^ " -> {" ^ (stringify_prog es') ^ "}] " ^ (stringify es)
-
-        | Op Minus -> "Op[-] " ^ (stringify es)
-        | Op Divide -> "Op[/] " ^ (stringify es)
-        | Op Plus -> "Op[+] " ^ (stringify es)
-        | Op Star -> "Op[*] " ^ (stringify es)
-        | Op Lt -> "Op[<] " ^ (stringify es)
-        | Op Gt -> "Op[>] " ^ (stringify es)
-        | Op Eq -> "Op[=] " ^ (stringify es)
-        | Op IfThenElse -> "Op[?] " ^ (stringify es)
-
-        | Apply (Partial n) -> "Apply[" ^ (string_of_int n) ^ " ]" ^ (stringify es)
-        | Apply Full -> "Apply[] " ^ (stringify es)
-        | Apply Total -> "Apply[*] " ^ (stringify es)
-
 let rec stringify_errs = function
     | [] -> ""
     | ((sl, sc), (fl, fc)) :: errs -> "Err[" ^ (string_of_int sl) ^ ":" ^ (string_of_int sc) ^ "-" ^ (string_of_int fc) ^ "] " ^ (stringify_errs errs)
@@ -65,12 +29,12 @@ let parser_test code output =
     let fail_f res exp () = 
         "    Input: " ^ code 
         ^ "\n    Expected: " ^ (match exp with
-            | Ok(es) -> stringify_prog es
+            | Ok(es) -> es
             | Err(errs) -> stringify_errs errs
         )
 
         ^ "\n    Actual: " ^ (match res with
-            | Ok(es) -> stringify_prog es
+            | Ok(es) -> es
             | Err(errs) -> stringify_errs errs        
         )
     in
@@ -82,9 +46,9 @@ let parser_test code output =
         Out_channel.close test_file;
 
         let test_file = In_channel.create test_filename in
-        let result = ref (Ok {env=Syntax.Env.empty; code=[]}) in
+        let result = ref (Ok "") in
 
-        begin match Compiler.run ~parser_callback:(fun prog -> result := Ok prog) test_file with
+        begin match Compiler.run ~parser_callback:(fun prog -> result := Ok (string_of_prog prog); false) test_file with
             | Ok(()) -> ()
             | Err(errs) -> result := Err (map (fun err -> match err with
                 | RedefinedName (_, p)
@@ -144,50 +108,48 @@ let () =
         );
     in
 
-    let from_list = fold_left (fun acc (name, value) -> Syntax.Env.add name value acc) Syntax.Env.empty in
-
     let tests = [
-        parser_test "" (Ok {env=from_list []; code=[]});
+        parser_test "" (Ok "");
 
-        parser_test "5" (Ok {env=from_list []; code=[Value (Int 5)]});
-        parser_test "1355" (Ok {env=from_list []; code=[Value (Int 1355)]});
-        parser_test "'c'" (Ok {env=from_list []; code=[Value (Char 'c')]});
-        parser_test "e" (Ok {env=from_list []; code=[Value (Ident "e")]});
-        parser_test "apple" (Ok {env=from_list []; code=[Value (Ident "apple")]});
-        parser_test "a54fd32le" (Ok {env=from_list []; code=[Value (Ident "a54fd32le")]});
-        parser_test "\"hello there\"" (Ok {env=from_list []; code=[Value (String "hello there")]});
-        parser_test "\"apple\npie\"" (Ok {env=from_list []; code=[Value (String "apple\npie")]});
+        parser_test "5" (Ok "Int[5]");
+        parser_test "1355" (Ok "Int[1355]");
+        parser_test "'c'" (Ok "Char[c]");
+        parser_test "e" (Ok "Id[e]");
+        parser_test "apple" (Ok "Id[apple]");
+        parser_test "a54fd32le" (Ok "Id[a54fd32le]");
+        parser_test "\"hello there\"" (Ok "Str[hello there]");
+        parser_test "\"apple\npie\"" (Ok "Str[apple\npie]");
 
-        parser_test "+" (Ok {env=from_list []; code=[Op Plus]});
-        parser_test "-" (Ok {env=from_list []; code=[Op Minus]});
-        parser_test "*" (Ok {env=from_list []; code=[Op Star]});
-        parser_test "/" (Ok {env=from_list []; code=[Op Divide]});
-        parser_test "<" (Ok {env=from_list []; code=[Op Lt]});
-        parser_test ">" (Ok {env=from_list []; code=[Op Gt]});
-        parser_test "=" (Ok {env=from_list []; code=[Op Eq]});
-        parser_test "?" (Ok {env=from_list []; code=[Op IfThenElse]});
+        parser_test "+" (Ok "Op[+]");
+        parser_test "-" (Ok "Op[-]");
+        parser_test "*" (Ok "Op[*]");
+        parser_test "/" (Ok "Op[/]");
+        parser_test "<" (Ok "Op[<]");
+        parser_test ">" (Ok "Op[>]");
+        parser_test "=" (Ok "Op[=]");
+        parser_test "?" (Ok "Op[?]");
 
-        parser_test "()" (Ok {env=from_list []; code=[Apply Full]});
-        parser_test "(*)" (Ok {env=from_list []; code=[Apply Total]});
-        parser_test "(8)" (Ok {env=from_list []; code=[Apply (Partial 8)]});
-        parser_test "(815)" (Ok {env=from_list []; code=[Apply (Partial 815)]});
+        parser_test "()" (Ok "Apply[]");
+        parser_test "(*)" (Ok "Apply[*]");
+        parser_test "(8)" (Ok "Apply[8]");
+        parser_test "(815)" (Ok "Apply[815]");
 
-        parser_test "r: 17" (Ok {env=from_list ["r", Int 17]; code=[]});
-        parser_test "corn: bacon" (Ok {env=from_list ["corn", Ident "bacon"]; code=[]});
+        parser_test "r: 17" (Ok "Name[r:Int[17]]");
+        parser_test "corn: bacon" (Ok "Name[corn:Id[bacon]]");
 
-        parser_test "{}" (Ok {env=from_list []; code=[Value (Function ([], {env=from_list []; code=[]}))]});
-        parser_test "{2}" (Ok {env=from_list []; code=[Value (Function ([], {env=from_list []; code=[Value (Int 2)]}))]});
-        parser_test "{\n2\n}" (Ok {env=from_list []; code=[Value (Function ([], {env=from_list []; code=[Value (Int 2)]}))]});
-        parser_test "{146}" (Ok {env=from_list []; code=[Value (Function ([], {env=from_list []; code=[Value (Int 146)]}))]});
-        parser_test "{beige}" (Ok {env=from_list []; code=[Value (Function ([], {env=from_list []; code=[Value (Ident "beige")]}))]});
-        parser_test "a -> {14}" (Ok {env=from_list []; code=[Value (Function (["a"], {env=from_list []; code=[Value (Int 14)]}))]});
-        parser_test "bard -> a -> {\na bard\n}" (Ok {env=from_list []; code=[Value (Function (["bard"; "a"], {env=from_list []; code=[Value (Ident "a"); Value (Ident "bard")]}))]});
-        parser_test "a -> { b: 5 }" (Ok {env=from_list []; code=[Value (Function (["a"], {env=from_list ["b", Int 5]; code=[]}))]});
+        parser_test "{}" (Ok "Fn[{}]");
+        parser_test "{2}" (Ok "Fn[{Int[2]}]");
+        parser_test "{\n2\n}" (Ok "Fn[{Int[2]}]");
+        parser_test "{146}" (Ok "Fn[{Int[146]}]");
+        parser_test "{beige}" (Ok "Fn[{Id[beige]}]");
+        parser_test "a -> {14}" (Ok "Fn[a -> {Int[14]}]");
+        parser_test "bard -> a -> {\na bard\n}" (Ok "Fn[bard -> a -> {Id[a]Id[bard]}]");
+        parser_test "a -> { b: 5 }" (Ok "Fn[a -> {Name[b:Int[5]]}]");
 
-        parser_test "475 cord" (Ok {env=from_list []; code=[Value (Int 475); Value (Ident "cord")]});
-        parser_test "84\n856\n+" (Ok {env=from_list []; code=[Value (Int 84); Value (Int 856); Op Plus]});
-        parser_test "74\ndapper\n*\n()" (Ok {env=from_list []; code=[Value (Int 74); Value (Ident "dapper"); Op Star; Apply Full]});
-        parser_test "15 arc\nswap: a -> b -> {\n    a b\n}\nswap (*)" (Ok {env=from_list ["swap", Function (["a"; "b"], {env=from_list []; code=[Value (Ident "a"); Value (Ident "b")]})]; code=[Value (Int 15); Value (Ident "arc"); Value (Ident "swap"); Apply Total]});
+        parser_test "475 cord" (Ok "Int[475]Id[cord]");
+        parser_test "84\n856\n+" (Ok "Int[84]Int[856]Op[+]");
+        parser_test "74\ndapper\n*\n()" (Ok "Int[74]Id[dapper]Op[*]Apply[]");
+        parser_test "15 arc\nswap: a -> b -> {\n    a b\n}\nswap (*)" (Ok "Name[swap:Fn[a -> b -> {Id[a]Id[b]}]]Int[15]Id[arc]Id[swap]Apply[*]");
 
         parser_test ";" (Err [(1, 0), (1, 1)]);
         parser_test "1\n(corn" (Err [(2, 0), (2, 0)]);
