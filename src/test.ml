@@ -51,7 +51,7 @@ let parser_test code output =
         begin match Compiler.run ~parser_callback:(fun prog -> result := Ok (string_of_prog prog); false) test_file with
             | Ok(()) -> ()
             | Err(errs) -> result := Err (map (fun err -> match err with
-                | RedefinedName (_, p)
+                | RedefinedName (_, _, p)
                 | UnterminatedLBrace p
                 | UnterminatedChar p
                 | UnterminatedString p

@@ -57,7 +57,7 @@ program:
         match (a, p) with
             | (Errors.Ok((name, value)), Errors.Ok(p')) -> (
                 if (Syntax.Env.mem name p'.env) then
-                    Errors.Err([Errors.redefined_name name $startpos])
+                    Errors.Err([Errors.redefined_name name $startpos (Syntax.Env.find name p'.env).location])
                 else
                     Errors.Ok({p' with env = (Syntax.Env.add name value p'.env)})
             )
@@ -146,7 +146,7 @@ func_body:
         match (a, p) with
             | (Errors.Ok((name, value)), Errors.Ok(p')) -> (
                 if (Syntax.Env.mem name p'.env) then
-                    Errors.Err([Errors.redefined_name name $startpos])
+                    Errors.Err([Errors.redefined_name name $startpos (Syntax.Env.find name p'.env).location])
                 else
                     Errors.Ok({p' with env = (Syntax.Env.add name value p'.env)})
             )
