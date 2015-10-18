@@ -83,6 +83,8 @@ let () =
                     )
 
                     | Failure f -> (
+                        AT.restore_cursor ();
+
                         AT.print_string [AT.Bold; AT.red] ("[Test " ^ (string_of_int n) ^ "]");
                         print_string " Failed";
                         AT.erase AT.Eol;
@@ -161,7 +163,7 @@ let () =
         parser_test "6\na -> {" (Err [(2, 5), (2, 5)]);
         parser_test "(" (Err [(1, 0), (1, 0)]);
         parser_test "54;\na -> {\n  5 4 + ( );\n}" (Err [(1, 2), (1, 3); (3, 8), (3, 8); (3, 10), (3, 11); (3, 11), (3, 12)]);
-        parser_test "a: 5\nb: 7\na: 12" (Err [(1, 0), (1, 0)]);
+        parser_test "a: 5\nb: 7\na: 12" (Err [(3, 0), (3, 0)]);
     ] in
 
     AT.save_cursor ();

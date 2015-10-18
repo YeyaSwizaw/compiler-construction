@@ -114,7 +114,7 @@ callspec:
 assignment:
     | i = IDENT; COLON; v = value { 
         match v with
-            | Errors.Ok (value, position) -> Errors.Ok((i, {location=position; data=value}))
+            | Errors.Ok (value, position) -> Errors.Ok((i, {location=$startpos; data=value}))
             | Errors.Err err -> Errors.Err(err)
     }
 
