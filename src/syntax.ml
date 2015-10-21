@@ -89,3 +89,5 @@ and string_of_exprs ls = fold_left (fun acc expr -> acc ^ string_of_expr expr) "
 and string_of_env ls = fold_left (fun acc (name, value) -> acc ^ "Name[" ^ name ^ ":" ^ (string_of_expr (Value value.data)) ^ "]") "" ls
 
 and string_of_prog prog = (string_of_env (Env.bindings prog.env)) ^ (string_of_exprs (dechunk prog.code))
+
+and string_of_pepe frog = "memes: " ^ frog

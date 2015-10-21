@@ -8,7 +8,7 @@ type 'a run_status =
     | Terminate
 
 (* Run the compiler on a given file *)
-let run ?parser_callback ?stage1_callback ?filename file =
+let run ?parser_callback ?instr_callback ?filename file =
     let lexbuf = Lexing.from_channel file in
     begin match filename with
          | Some(filename) -> lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = filename };
@@ -26,9 +26,9 @@ let run ?parser_callback ?stage1_callback ?filename file =
     in
 
     (* Run the first optimisation stage *)
-    let stage1_result = match parse_result with
-        | Continue (Errors.Ok prog) -> begin match Optimiser.stage1 prog with
-            | Errors.Ok code -> begin match stage1_callback with
+    let instr_result = match parse_result with
+        | Continue (Errors.Ok prog) -> begin match Instr.generate_instructions prog with
+            | Errors.Ok code -> begin match instr_callback with
                 | Some f -> if f code then Continue (Errors.Ok code) else Terminate
                 | None -> Continue (Errors.Ok code)
             end
@@ -40,7 +40,7 @@ let run ?parser_callback ?stage1_callback ?filename file =
         | Terminate -> Terminate
     in
 
-    match stage1_result with
+    match instr_result with
         | Continue (Errors.Ok _) -> Errors.Ok ()
         | Continue (Errors.Err es) -> Errors.Err es
         | Terminate -> Errors.Ok ()
