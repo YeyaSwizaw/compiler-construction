@@ -41,3 +41,5 @@ fib: n -> {
     # n = n; acc1 = 0; acc2 = 1
     n 0 1 fib ()
 }
+
+17 fib ()
