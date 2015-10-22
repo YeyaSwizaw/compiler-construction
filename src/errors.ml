@@ -12,6 +12,7 @@ type syntax_error_t =
     | ExpectedValue
 
 type error =
+    | UndefinedName of string * Lexing.position
     | RedefinedName of string * Lexing.position * Lexing.position
     | UnterminatedLBrace of Lexing.position
     | UnterminatedString of Lexing.position
@@ -26,6 +27,7 @@ type ('a, 'b) result =
 
 type 'a parse_result = ('a, (error list)) result
 
+let undefined_name n p1 = UndefinedName (n, p1)
 let redefined_name n p1 p2 = RedefinedName (n, p1, p2)
 let unterminated_lbrace p = UnterminatedLBrace p
 let unterminated_string p = UnterminatedString p
@@ -74,6 +76,15 @@ let rec print_errors file = function
         AT.print_string [AT.Bold; AT.red] "[Error]";
 
         begin match e with
+            | UndefinedName (name, pos) -> (
+                AT.print_string [AT.Bold; AT.blue] ("[" ^ string_of_position pos ^ "]");
+                print_newline ();
+                print_string "Use of undefined name ";
+                AT.print_string [AT.Bold] ("'" ^ name ^ "'");
+                print_endline ":";
+                print_error_location file pos;
+            )
+
             | RedefinedName (name, pos1, pos2) -> (
                 AT.print_string [AT.Bold; AT.blue] ("[" ^ string_of_position pos2 ^ "]");
                 print_newline ();

@@ -1,3 +1,4 @@
+(* Instruction types *)
 type value_t =
     | Int of int
     | Char of char
@@ -22,6 +23,7 @@ type instruction =
 
 module Fns = Map.Make(String)
 
+(* Stringifying *)
 let string_of_instr = function
     | PushConst (Int i) -> "Push[Int[" ^ (string_of_int i) ^"]]"
     | PushConst (Char c) -> "Push[Char[" ^ (String.make 1 c) ^"]]"
@@ -42,6 +44,7 @@ let string_of_fns fns =
             name ^ ":" ^ Buffer.contents buf
         ) fns ""
 
+(* Convert parse tree to instructions *)
 let generate_instructions code =
     let rec generate_function fn = 
         let output = Stack.create () in
@@ -49,37 +52,36 @@ let generate_instructions code =
 
         let apply_binop op v1 v2 = match (op, v1, v2) with
             | (Add, Int i1, Int i2) -> (Stack.push (PushConst (Int (i1 + i2))) output; Errors.Ok(()))
+            | (Sub, Int i1, Int i2) -> (Stack.push (PushConst (Int (i1 - i2))) output; Errors.Ok(()))
+            | (Mul, Int i1, Int i2) -> (Stack.push (PushConst (Int (i1 * i2))) output; Errors.Ok(()))
+            | (Div, Int i1, Int i2) -> (Stack.push (PushConst (Int (i1 / i2))) output; Errors.Ok(()))
             (* TODO: endless patterns *)
+        in
+
+        let rec pop_args acc n = if n = 0 then
+            Errors.Ok(acc)
+        else 
+            try
+                match Stack.pop output with
+                    | PushConst v -> pop_args (v :: acc) (n - 1)
+                    | other -> (Stack.push other output; Errors.Ok(acc))
+            with
+                Stack.Empty -> Errors.Ok(acc) (* TODO *)
         in
 
         let attempt_full_fold () = (
             try
                 match Stack.pop output with
-                    | PushFn (BinOp op) -> (try
-                        match Stack.pop output with
-                            | PushConst v1 -> (try
-                                match Stack.pop output with
-                                    | PushConst v2 -> apply_binop op v1 v2
-                                    | other -> (
-                                        Stack.push other output;
-                                        Stack.push (PushConst v1) output;
-                                        Errors.Ok(())
-                                    )
-                            with
-                                Stack.Empty -> Errors.Err([]) (* TODO *)
-                            )
-
-                            | other -> (
-                                Stack.push other output;
-                                Errors.Ok(())
-                            )
-                        with
-                            Stack.Empty -> Errors.Err([]) (* TODO *)
+                    | PushFn (BinOp op) -> (
+                        match pop_args [] 2 with
+                            | Errors.Ok([a2; a1]) -> apply_binop op a1 a2
+                            | Errors.Ok(other) -> (List.iter (fun thing -> Stack.push (PushConst thing) output) other; Errors.Ok(()))
+                            | Errors.Err(err) -> Errors.Err(err)
                     )
 
                     | other -> Errors.Err([]) (* TODO *)
             with
-                Stack.Empty -> Errors.Err([]) (* TODO *)
+                Stack.Empty -> Errors.Ok(()) (* TODO *)
         ) in
 
         let rec loop = function
@@ -100,7 +102,7 @@ let generate_instructions code =
                             | Syntax.String s -> (Stack.push (PushConst (String s)) output; loop tl)
 
                     with
-                        Not_found -> Errors.Err([]) (* TODO *)
+                        Not_found -> Errors.Err([Errors.undefined_name name expr.Syntax.location]) (* TODO *)
                 )
 
                 (* Push binary operators *)
@@ -109,9 +111,10 @@ let generate_instructions code =
                 | Syntax.Op Syntax.Times -> (Stack.push (PushFn (BinOp Mul)) output; loop tl)
                 | Syntax.Op Syntax.Divide -> (Stack.push (PushFn (BinOp Div)) output; loop tl)
 
+                (* Application - attempt constant fold *)
                 | Syntax.Apply Syntax.Full -> (match attempt_full_fold () with
-                    | Ok(()) -> loop tl
-                    | Err(errs) -> Err(errs)
+                    | Errors.Ok(()) -> loop tl
+                    | Errors.Err(errs) -> Errors.Err(errs)
                 )
 
                 | _ -> loop tl;
@@ -123,4 +126,4 @@ let generate_instructions code =
 
     match generate_function code with
         | Errors.Ok(fn) -> Errors.Ok(Fns.singleton "" fn)
-        | Errors.Err(_) -> Errors.Err([])
+        | Errors.Err(errs) -> Errors.Err(errs)
