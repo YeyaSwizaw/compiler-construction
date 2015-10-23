@@ -177,6 +177,8 @@ let generate_instructions code =
                                 Stack.push (PushFn (Named fn_name)) output;
                                 loop tl
                             )
+
+                            | Syntax.Ident n -> loop ({Syntax.data=(Syntax.Value (Syntax.Ident n)); Syntax.location=val_chunk.Syntax.location} :: tl)
                         );
 
                         | None -> (
@@ -206,6 +208,8 @@ let generate_instructions code =
                                             Stack.push (PushFn (Named fn_name)) output;
                                             loop tl
                                         )
+
+                                        | Syntax.Ident n -> loop ({Syntax.data=(Syntax.Value (Syntax.Ident n)); Syntax.location=var_chunk.Syntax.location} :: tl)
                                     );
 
                                     | None -> (errors := (Errors.undefined_name var_name expr.Syntax.location) :: !errors; loop tl)
