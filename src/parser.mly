@@ -76,8 +76,6 @@ expr:
     | o = op { o }
     | c = callspec { c }
 
-    (* This (with the case in value) produces reduce/reduce conflicts.
-     * They are harmless and only in error handling *)
     | error { Errors.Err([Errors.expected_expression $startpos $endpos]) }
 
 value:
@@ -89,10 +87,6 @@ value:
 
     | p = UNTERMINATED_STRING { Errors.Err([Errors.unterminated_string p]) }
     | p = UNTERMINATED_CHAR { Errors.Err([Errors.unterminated_char p]) }
-
-    (* This (with the case in expr) produces reduce/reduce conflicts.
-     * They are harmless and only in error handling *)
-    | error { Errors.Err([Errors.expected_value $startpos $endpos]) }
 
 op:
     | SUB { Errors.Ok (Syntax.op_chunk Syntax.Minus $startpos) }
@@ -112,11 +106,15 @@ callspec:
     | e = INVALID_CALLSPEC { Errors.Err([Errors.invalid_callspec e]) }
 
 assignment:
-    | i = IDENT; COLON; v = value { 
+    | i = IDENT; COLON; v = exp_value { 
         match v with
             | Errors.Ok (value, position) -> Errors.Ok((i, {location=$startpos; data=value}))
             | Errors.Err err -> Errors.Err(err)
     }
+
+exp_value:
+    | v = value { v }
+    | error { Errors.Err([Errors.expected_value $startpos $endpos]) }
 
 func:
     | a = func_arg_list; p = LBRACE; b = func_body; EOF { 

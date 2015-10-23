@@ -16,9 +16,7 @@ A Makefile is provided for easy compilation of both the compiler and the tests:
 # make
 ```
 
-To run the tests, run ```./test.native```, and to run the program, run ```./sfl.native <filename>```. 
-When compiling, it will complain about reduce/reduce conflicts - these are only involved in error handling, 
-and are not actually a problem.
+This will compiler the target and the tests, and then run the tests.
 
 ## Language
 
