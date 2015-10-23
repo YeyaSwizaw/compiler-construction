@@ -60,6 +60,18 @@ This can also be used with non-function values, however it is most useful for de
 
 Runnable examples can be found in ```doc/examples``` in the repository.
 
+## Optimisations
+Currently, the compiler does a basic constant folding optimisation, which executes basic mathematical expressions.
+Basically, code of the form:
+
+```
+x y + ()
+```
+
+where ```x``` and ```y``` are constant values will get optimised to be simply ```x + y```.
+
+This optimisation can be disabled with the flag ```--disable-cf```
+
 ## Reference
 Values can be integers, "strings" 'chars' or functions.
 
