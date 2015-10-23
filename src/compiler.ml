@@ -2,13 +2,14 @@
 (* Samuel Sleight *)
 
 open Lexing
+open Flags
 
 type 'a run_status =
     | Continue of 'a
     | Terminate
 
 (* Run the compiler on a given file *)
-let run ?parser_callback ?instr_callback ?filename file =
+let run ?parser_callback ?instr_callback ?filename ?(opt_flags=default_opt_flags) file =
     let lexbuf = Lexing.from_channel file in
     begin match filename with
          | Some(filename) -> lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = filename };
@@ -27,7 +28,7 @@ let run ?parser_callback ?instr_callback ?filename file =
 
     (* Run the first optimisation stage *)
     let instr_result = match parse_result with
-        | Continue (Errors.Ok prog) -> begin match Instr.generate_instructions prog with
+        | Continue (Errors.Ok prog) -> begin match Instr.generate_instructions opt_flags prog with
             | Errors.Ok code -> begin match instr_callback with
                 | Some f -> if f code then Continue (Errors.Ok code) else Terminate
                 | None -> Continue (Errors.Ok code)

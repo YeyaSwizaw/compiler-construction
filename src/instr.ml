@@ -66,7 +66,7 @@ let string_of_fns fns =
         ) fns ""
 
 (* Convert parse tree to instructions *)
-let generate_instructions code =
+let generate_instructions opt_flags code =
     let next_id = let prev = ref 0 in (fun () -> prev := !prev + 1; !prev) in
 
     let result = ref Fns.empty in
@@ -228,7 +228,15 @@ let generate_instructions code =
                 | Syntax.Op Syntax.IfThenElse -> (Stack.push (PushFn (TriOp Ite)) output; loop tl)
 
                 (* Application - attempt constant fold *)
-                | Syntax.Apply Syntax.Full -> (attempt_full_fold (); loop tl)
+                | Syntax.Apply Syntax.Full -> (
+                    if opt_flags.Flags.cf then (
+                        attempt_full_fold (); 
+                        loop tl
+                    ) else (
+                        Stack.push (Apply Full) output;
+                        loop tl
+                    )
+                )
 
                 | _ -> loop tl;
             );
