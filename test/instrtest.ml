@@ -51,35 +51,36 @@ let instr_test code output =
 
 let run () = 
     let tests = [
-        instr_test "1" (Ok ":Push[Int[1]]\n");
-        instr_test "\"hello\"" (Ok ":Push[Str[hello]]\n");
-        instr_test "'x'" (Ok ":Push[Char[x]]\n");
+        instr_test "1" (Ok ":[]:Push[Int[1]]\n");
+        instr_test "\"hello\"" (Ok ":[]:Push[Str[hello]]\n");
+        instr_test "'x'" (Ok ":[]:Push[Char[x]]\n");
 
-        instr_test "+" (Ok ":Push[Fn[+]]\n");
-        instr_test "-" (Ok ":Push[Fn[-]]\n");
-        instr_test "*" (Ok ":Push[Fn[*]]\n");
-        instr_test "/" (Ok ":Push[Fn[/]]\n");
-        instr_test "=" (Ok ":Push[Fn[=]]\n");
-        instr_test ">" (Ok ":Push[Fn[>]]\n");
-        instr_test "<" (Ok ":Push[Fn[<]]\n");
+        instr_test "+" (Ok ":[]:Push[Fn[+]]\n");
+        instr_test "-" (Ok ":[]:Push[Fn[-]]\n");
+        instr_test "*" (Ok ":[]:Push[Fn[*]]\n");
+        instr_test "/" (Ok ":[]:Push[Fn[/]]\n");
+        instr_test "=" (Ok ":[]:Push[Fn[=]]\n");
+        instr_test ">" (Ok ":[]:Push[Fn[>]]\n");
+        instr_test "<" (Ok ":[]:Push[Fn[<]]\n");
 
-        instr_test "()" (Ok ":Apply[]\n");
+        instr_test "()" (Ok ":[]:Apply[]\n");
 
-        instr_test "num\nnum: 7" (Ok ":Push[Int[7]]\n");
+        instr_test "num\nnum: 7" (Ok ":[]:Push[Int[7]]\n");
 
         (* Simple constant folding *)
-        instr_test "2 9 +" (Ok ":Push[Fn[+]]Push[Int[9]]Push[Int[2]]\n");
-        instr_test "2 9 + ()" (Ok ":Push[Int[11]]\n");
-        instr_test "14 13 * ()" (Ok ":Push[Int[182]]\n");
-        instr_test "2 6 / ()" (Ok ":Push[Int[3]]\n");
-        instr_test "6 1 - ()" (Ok ":Push[Int[-5]]\n");
-        instr_test "2 9 11 + () / ()" (Ok ":Push[Int[10]]\n");
+        instr_test "2 9 +" (Ok ":[]:Push[Fn[+]]Push[Int[9]]Push[Int[2]]\n");
+        instr_test "2 9 + ()" (Ok ":[]:Push[Int[11]]\n");
+        instr_test "14 13 * ()" (Ok ":[]:Push[Int[182]]\n");
+        instr_test "2 6 / ()" (Ok ":[]:Push[Int[3]]\n");
+        instr_test "6 1 - ()" (Ok ":[]:Push[Int[-5]]\n");
+        instr_test "2 9 11 + () / ()" (Ok ":[]:Push[Int[10]]\n");
 
         (* Functions *)
-        instr_test "a -> { a }" (Ok ":Push[Fn[1]]\n1:Push[Arg[a]]\n");
-        instr_test "fun: a -> { a }\nfun" (Ok ":Push[Fn[fun1]]\nfun1:Push[Arg[a]]\n");
-        instr_test "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":Apply[]Push[Fn[fun1]]Push[Int[5]]\nfun1:Apply[]Push[Fn[+]]Push[Int[3]]Push[Arg[a]]\n");
-        instr_test "fun: a -> { a fun () }\n1 fun ()" (Ok ":Apply[]Push[Fn[fun1]]Push[Int[1]]\nfun1:Apply[]Push[Self]Push[Arg[a]]\n");
+        instr_test "a -> { a }" (Ok ":[]:Push[Fn[1]]\n1:[a]:Push[Arg[a]]\n");
+        instr_test "fun: a -> { a }\nfun" (Ok ":[]:Push[Fn[fun1]]\nfun1:[a]:Push[Arg[a]]\n");
+        instr_test "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[]:Apply[]Push[Fn[fun1]]Push[Int[5]]\nfun1:[a]:Apply[]Push[Fn[+]]Push[Int[3]]Push[Arg[a]]\n");
+        instr_test "fun: a -> { a fun () }\n1 fun ()" (Ok ":[]:Apply[]Push[Fn[fun1]]Push[Int[1]]\nfun1:[a]:Apply[]Push[Self]Push[Arg[a]]\n");
+        instr_test "fun: a -> b -> c -> {}\nfun ()" (Ok ":[]:Apply[]Push[Fn[fun1]]\nfun1:[a, b, c]:\n");
 
         instr_test "a" (Err [(1, 0), (1, 0)]);
         instr_test "a -> { b }" (Err [(1, 7), (1, 7)]);

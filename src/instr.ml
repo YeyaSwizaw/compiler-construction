@@ -1,3 +1,6 @@
+(* Compiler Construction - instr.ml *)
+(* Samuel Sleight *)
+
 (* Instruction types *)
 type value_t =
     | Int of int
@@ -31,6 +34,11 @@ type instruction =
     | PushSelf
     | Apply of apply_t
 
+type block = {
+    args: string list;
+    code: instruction Stack.t;
+}
+
 module Fns = Map.Make(String)
 
 (* Stringifying *)
@@ -57,12 +65,17 @@ let string_of_instr = function
 
     | Apply Full -> "Apply[]"
 
+let rec string_of_args = function
+    | [] -> ""
+    | [arg] -> arg
+    | arg :: args -> arg ^ ", " ^ (string_of_args args)
+
 let string_of_fns fns = 
     Fns.fold 
         (fun name code acc -> 
             let buf = Buffer.create 17 in
-            (Stack.iter (fun instr -> Buffer.add_string buf (string_of_instr instr)) code);
-            acc ^ name ^ ":" ^ Buffer.contents buf ^ "\n"
+            (Stack.iter (fun instr -> Buffer.add_string buf (string_of_instr instr)) code.code);
+            acc ^ name ^ ":[" ^ (string_of_args code.args) ^ "]:" ^ Buffer.contents buf ^ "\n"
         ) fns ""
 
 (* Convert parse tree to instructions *)
@@ -72,7 +85,7 @@ let generate_instructions opt_flags code =
     let result = ref Fns.empty in
     let errors = ref [] in
 
-    let rec generate_function ?(name="") ?(unique_name=name) ?(args=[]) ?(parent_names=[]) fn (env::parents) = 
+    let rec generate_function ?(name="") ?(unique_name=name) ?(fn_args=[]) ?(args=[]) ?(parent_names=[]) fn (env::parents) = 
         let output = Stack.create () in
 
         let apply_binop op v1 v2 = match (op, v1, v2) with
@@ -134,7 +147,7 @@ let generate_instructions opt_flags code =
         in
 
         let rec loop = function
-            | [] -> result := (Fns.add unique_name output !result)
+            | [] -> result := (Fns.add unique_name {args=fn_args; code=output} !result)
 
             | expr :: tl -> (match expr.Syntax.data with
                 (* Push simple values *)
@@ -146,6 +159,7 @@ let generate_instructions opt_flags code =
                     let fn_name = string_of_int (next_id ()) in
                     generate_function 
                         ~name:fn_name 
+                        ~fn_args:fn_args
                         ~args:(args @ fn_args) 
                         ~parent_names:((name, unique_name) :: parent_names)
                         fn_code.Syntax.code
@@ -169,6 +183,7 @@ let generate_instructions opt_flags code =
                                 generate_function 
                                     ~name:var_name 
                                     ~unique_name:fn_name 
+                                    ~fn_args:fn_args
                                     ~args:(args @ fn_args) 
                                     ~parent_names:((name, unique_name) :: parent_names)
                                     fn_code.Syntax.code
@@ -200,6 +215,7 @@ let generate_instructions opt_flags code =
                                             generate_function 
                                                 ~name:var_name 
                                                 ~unique_name:fn_name 
+                                                ~fn_args:fn_args
                                                 ~args:(args @ fn_args) 
                                                 ~parent_names:((name, unique_name) :: parent_names)
                                                 fn_code.Syntax.code
