@@ -8,11 +8,14 @@ LIBFLAGS = -shared
 OBJ = \
 	output.o \
 	stack.o \
+	ops.o \
+	apply.o \
 	main.o
 
 HEADERS = \
 	type.h \
 	stack.h \
+	ops.h \
 	output.h
 
 all: $(OBJ)

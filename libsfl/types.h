@@ -5,4 +5,26 @@
 
 typedef int32_t sfl_int;
 
+typedef struct {
+    sfl_int arg_count, args_applied;
+    void* fn_ptr;
+    struct sfl_object* args;
+} sfl_fn;
+
+struct sfl_object;
+enum object_tag {
+    INT_VALUE,
+    FN_VALUE,
+    PARTIAL_FN_VALUE,
+};
+
+typedef struct {
+    enum object_tag tag;
+
+    union {
+        sfl_int int_value;
+        sfl_fn fn_value;
+    };
+} sfl_object;
+
 #endif

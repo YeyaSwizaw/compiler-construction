@@ -13,7 +13,7 @@ let run filename opt_flags () =
         let result = Compiler.run 
             (*~parser_callback:(fun prog -> print_endline (Syntax.string_of_prog prog); true) (* Print parsed expressions *)*)
             (*~instr_callback:(fun code -> print_endline (Instr.string_of_fns code); true) (* Print instructions *)*)
-            (*~codegen_callback:(fun code -> print_endline ":)"; true)*)
+            ~codegen_callback:(fun code -> print_endline code; true)
             ~filename: filename
             ~opt_flags: opt_flags
             chan 
