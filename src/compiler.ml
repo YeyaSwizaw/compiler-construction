@@ -9,7 +9,7 @@ type 'a run_status =
     | Terminate
 
 (* Run the compiler on a given file *)
-let run ?parser_callback ?instr_callback ?codegen_callback ?filename ?(opt_flags=default_opt_flags) file =
+let run ?parser_callback ?instr_callback ?codegen_callback ?filename ?(opt_flags=default_opt_flags) ?(output="a.out") file =
     let lexbuf = Lexing.from_channel file in
     begin match filename with
          | Some(filename) -> lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = filename };
@@ -56,6 +56,11 @@ let run ?parser_callback ?instr_callback ?codegen_callback ?filename ?(opt_flags
     in
 
     match compiler_result with
-        | Continue (Errors.Ok _) -> Errors.Ok ()
+        | Continue (Errors.Ok code) -> (
+            let command = "echo \"" ^ code ^ "\" | llc -- | cc -o " ^ output ^ " -Llibsfl -lsfl -xassembler -" in
+            Sys.command command;
+            Errors.Ok(())
+        )
+
         | Continue (Errors.Err es) -> Errors.Err es
         | Terminate -> Errors.Ok ()

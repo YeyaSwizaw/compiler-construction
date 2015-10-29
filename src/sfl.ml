@@ -4,7 +4,7 @@
 open Core.Std
 open Flags
 
-let run filename opt_flags () =
+let run filename output opt_flags () =
     try
         (* Open a file *)
         let chan = In_channel.create filename in
@@ -13,9 +13,10 @@ let run filename opt_flags () =
         let result = Compiler.run 
             (*~parser_callback:(fun prog -> print_endline (Syntax.string_of_prog prog); true) (* Print parsed expressions *)*)
             (*~instr_callback:(fun code -> print_endline (Instr.string_of_fns code); true) (* Print instructions *)*)
-            ~codegen_callback:(fun code -> print_endline code; true)
+            (*~codegen_callback:(fun code -> print_endline code; true)*)
             ~filename: filename
             ~opt_flags: opt_flags
+            ~output: output
             chan 
         in
 
@@ -33,10 +34,11 @@ let () =
     Command.Spec.(
         empty 
         +> anon ("filename" %: file)
+        +> flag ~aliases:["-o"] "--output" (optional_with_default "a.out" file) ~doc:"filename The output filename"
         +> flag "--disable-cf" no_arg ~doc:" Disable constant folding optimisations"
     )
-    (fun filename disable_cf ->
-        run filename { 
+    (fun filename output disable_cf ->
+        run filename output { 
             cf=(not disable_cf) 
         }
     )
