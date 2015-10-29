@@ -1,17 +1,18 @@
 #include "ops.h"
+#include "stack.h"
 
-sfl_int op_add(sfl_int* args) {
-    return args[0] + args[1];
+void op_add(sfl_object* args) {
+    stack_push_int(args[0].int_value + args[1].int_value);
 }
 
-sfl_int op_sub(sfl_int* args) {
-    return args[0] - args[1];
+void op_sub(sfl_object* args) {
+    stack_push_int(args[0].int_value - args[1].int_value);
 }
 
-sfl_int op_mul(sfl_int* args) {
-    return args[0] * args[1];
+void op_mul(sfl_object* args) {
+    stack_push_int(args[0].int_value * args[1].int_value);
 }
 
-sfl_int op_div(sfl_int* args) {
-    return args[0] / args[1];
+void op_div(sfl_object* args) {
+    stack_push_int(args[0].int_value / args[1].int_value);
 }

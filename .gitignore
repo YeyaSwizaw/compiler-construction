@@ -4,3 +4,6 @@ _build
 *.o
 *.so
 *.ll
+*.bc
+*.sfl
+*.s

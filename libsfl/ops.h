@@ -3,9 +3,9 @@
 
 #include "types.h"
 
-sfl_int op_add(sfl_int*);
-sfl_int op_sub(sfl_int*);
-sfl_int op_mul(sfl_int*);
-sfl_int op_div(sfl_int*);
+void op_add(sfl_object* args);
+void op_sub(sfl_object* args);
+void op_mul(sfl_object* args);
+void op_div(sfl_object* args);
 
 #endif

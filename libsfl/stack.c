@@ -16,14 +16,6 @@ void stack_free() {
     }
 }
 
-void stack_push(sfl_int value) {
-    struct stack_node* new_node = malloc(sizeof(*new_node));
-    new_node->data.tag = INT_VALUE;
-    new_node->data.int_value = value;
-    new_node->next = stack.head;
-    stack.head = new_node;
-}
-
 sfl_object stack_pop() {
     struct stack_node tmp;
     memcpy(&tmp, stack.head, sizeof(tmp));
@@ -32,39 +24,36 @@ sfl_object stack_pop() {
     return tmp.data;
 }
 
-// Push operators
-void stack_push_add() {
+void stack_push_int(sfl_int value) {
     struct stack_node* new_node = malloc(sizeof(*new_node));
-    new_node->data.tag = FN_VALUE;
-    new_node->data.fn_value.arg_count = 2;
-    new_node->data.fn_value.fn_ptr = (void*)op_add;
+    new_node->data.tag = INT_VALUE;
+    new_node->data.int_value = value;
     new_node->next = stack.head;
     stack.head = new_node;
+}
+
+void stack_push_fn(void* fn, sfl_int args) {
+    struct stack_node* new_node = malloc(sizeof(*new_node));
+    new_node->data.tag = FN_VALUE;
+    new_node->data.fn_value.arg_count = args;
+    new_node->data.fn_value.fn_ptr = fn;
+    new_node->next = stack.head;
+    stack.head = new_node;
+}
+
+// Push operators
+void stack_push_add() {
+    stack_push_fn(op_add, 2);
 }
 
 void stack_push_sub() {
-    struct stack_node* new_node = malloc(sizeof(*new_node));
-    new_node->data.tag = FN_VALUE;
-    new_node->data.fn_value.arg_count = 2;
-    new_node->data.fn_value.fn_ptr = (void*)op_sub;
-    new_node->next = stack.head;
-    stack.head = new_node;
+    stack_push_fn(op_sub, 2);
 }
 
 void stack_push_mul() {
-    struct stack_node* new_node = malloc(sizeof(*new_node));
-    new_node->data.tag = FN_VALUE;
-    new_node->data.fn_value.arg_count = 2;
-    new_node->data.fn_value.fn_ptr = (void*)op_mul;
-    new_node->next = stack.head;
-    stack.head = new_node;
+    stack_push_fn(op_mul, 2);
 }
 
 void stack_push_div() {
-    struct stack_node* new_node = malloc(sizeof(*new_node));
-    new_node->data.tag = FN_VALUE;
-    new_node->data.fn_value.arg_count = 2;
-    new_node->data.fn_value.fn_ptr = (void*)op_div;
-    new_node->next = stack.head;
-    stack.head = new_node;
+    stack_push_fn(op_div, 2);
 }

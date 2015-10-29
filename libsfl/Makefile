@@ -10,10 +10,11 @@ OBJ = \
 	stack.o \
 	ops.o \
 	apply.o \
+	types.o \
 	main.o
 
 HEADERS = \
-	type.h \
+	types.h \
 	stack.h \
 	ops.h \
 	output.h

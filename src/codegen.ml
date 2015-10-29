@@ -21,17 +21,14 @@ let generate_code instrs =
 
     (* External Functions *)
     let fn_print_int () = fn_proto "print_int" void_t (Array.make 1 int_t) in
-    let fn_stack_push () = fn_proto "stack_push" void_t (Array.make 1 int_t) in
+    let fn_stack_push_int () = fn_proto "stack_push_int" void_t (Array.make 1 int_t) in
     let fn_stack_push_add () = fn_proto "stack_push_add" void_t [||] in
     let fn_stack_push_sub () = fn_proto "stack_push_sub" void_t [||] in
     let fn_stack_push_mul () = fn_proto "stack_push_mul" void_t [||] in
     let fn_stack_push_div () = fn_proto "stack_push_div" void_t [||] in
     let fn_apply_full () = fn_proto "apply_full" void_t [||] in
 
-    let build_push i =
-        let args = Array.make 1 (const_int int_t i) in
-        build_call (fn_stack_push ()) args "" bld;
-    in
+    let call f args = ignore (build_call (f ()) args "" bld) in
 
     (* Do things *)
     let generate_function name code = 
@@ -40,12 +37,12 @@ let generate_code instrs =
         position_at_end block bld;
 
         let generate_expr = function
-            | Instr.PushConst (Instr.Int i) -> ignore (build_push i)
-            | Instr.PushFn (Instr.BinOp Instr.Add) -> ignore (build_call (fn_stack_push_add ()) [||] "" bld)
-            | Instr.PushFn (Instr.BinOp Instr.Sub) -> ignore (build_call (fn_stack_push_sub ()) [||] "" bld)
-            | Instr.PushFn (Instr.BinOp Instr.Mul) -> ignore (build_call (fn_stack_push_mul ()) [||] "" bld)
-            | Instr.PushFn (Instr.BinOp Instr.Div) -> ignore (build_call (fn_stack_push_div ()) [||] "" bld)
-            | Instr.Apply (Instr.Full) -> ignore (build_call (fn_apply_full ()) [||] "" bld)
+            | Instr.PushConst (Instr.Int i) -> call fn_stack_push_int [| const_int int_t i |]
+            | Instr.PushFn (Instr.BinOp Instr.Add) -> call fn_stack_push_add [||]
+            | Instr.PushFn (Instr.BinOp Instr.Sub) -> call fn_stack_push_sub [||]
+            | Instr.PushFn (Instr.BinOp Instr.Mul) -> call fn_stack_push_mul [||]
+            | Instr.PushFn (Instr.BinOp Instr.Div) -> call fn_stack_push_div [||]
+            | Instr.Apply (Instr.Full) -> call fn_apply_full [||]
         in
 
         Stack.iter generate_expr code.Instr.code;

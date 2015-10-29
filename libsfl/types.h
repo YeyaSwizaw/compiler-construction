@@ -31,4 +31,6 @@ typedef struct {
     };
 } sfl_object;
 
+sfl_object obj_int(sfl_int);
+
 #endif

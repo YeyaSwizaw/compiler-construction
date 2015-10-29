@@ -19,9 +19,10 @@ static struct stack stack;
 void stack_init();
 void stack_free();
 
-void stack_push(sfl_int);
 sfl_object stack_pop();
 
+void stack_push_int(sfl_int);
+void stack_push_fn(void*, sfl_int);
 void stack_push_add();
 void stack_push_sub();
 void stack_push_mul();
