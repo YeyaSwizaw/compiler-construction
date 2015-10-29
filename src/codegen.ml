@@ -23,6 +23,9 @@ let generate_code instrs =
     let fn_print_int () = fn_proto "print_int" void_t (Array.make 1 int_t) in
     let fn_stack_push () = fn_proto "stack_push" void_t (Array.make 1 int_t) in
     let fn_stack_push_add () = fn_proto "stack_push_add" void_t [||] in
+    let fn_stack_push_sub () = fn_proto "stack_push_sub" void_t [||] in
+    let fn_stack_push_mul () = fn_proto "stack_push_mul" void_t [||] in
+    let fn_stack_push_div () = fn_proto "stack_push_div" void_t [||] in
     let fn_apply_full () = fn_proto "apply_full" void_t [||] in
 
     let build_push i =
@@ -30,6 +33,7 @@ let generate_code instrs =
         build_call (fn_stack_push ()) args "" bld;
     in
 
+    (* Do things *)
     let generate_function name code = 
         let code_fn_proto = fn_proto name void_t (Array.make (List.length code.Instr.args) int_t) in
         let block = append_block ctx "entry" code_fn_proto in
@@ -38,6 +42,9 @@ let generate_code instrs =
         let generate_expr = function
             | Instr.PushConst (Instr.Int i) -> ignore (build_push i)
             | Instr.PushFn (Instr.BinOp Instr.Add) -> ignore (build_call (fn_stack_push_add ()) [||] "" bld)
+            | Instr.PushFn (Instr.BinOp Instr.Sub) -> ignore (build_call (fn_stack_push_sub ()) [||] "" bld)
+            | Instr.PushFn (Instr.BinOp Instr.Mul) -> ignore (build_call (fn_stack_push_mul ()) [||] "" bld)
+            | Instr.PushFn (Instr.BinOp Instr.Div) -> ignore (build_call (fn_stack_push_div ()) [||] "" bld)
             | Instr.Apply (Instr.Full) -> ignore (build_call (fn_apply_full ()) [||] "" bld)
         in
 

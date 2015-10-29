@@ -41,3 +41,30 @@ void stack_push_add() {
     new_node->next = stack.head;
     stack.head = new_node;
 }
+
+void stack_push_sub() {
+    struct stack_node* new_node = malloc(sizeof(*new_node));
+    new_node->data.tag = FN_VALUE;
+    new_node->data.fn_value.arg_count = 2;
+    new_node->data.fn_value.fn_ptr = (void*)op_sub;
+    new_node->next = stack.head;
+    stack.head = new_node;
+}
+
+void stack_push_mul() {
+    struct stack_node* new_node = malloc(sizeof(*new_node));
+    new_node->data.tag = FN_VALUE;
+    new_node->data.fn_value.arg_count = 2;
+    new_node->data.fn_value.fn_ptr = (void*)op_mul;
+    new_node->next = stack.head;
+    stack.head = new_node;
+}
+
+void stack_push_div() {
+    struct stack_node* new_node = malloc(sizeof(*new_node));
+    new_node->data.tag = FN_VALUE;
+    new_node->data.fn_value.arg_count = 2;
+    new_node->data.fn_value.fn_ptr = (void*)op_div;
+    new_node->next = stack.head;
+    stack.head = new_node;
+}

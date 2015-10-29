@@ -23,5 +23,8 @@ void stack_push(sfl_int);
 sfl_object stack_pop();
 
 void stack_push_add();
+void stack_push_sub();
+void stack_push_mul();
+void stack_push_div();
 
 #endif
