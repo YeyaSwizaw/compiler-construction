@@ -3,8 +3,14 @@ To implement the language stack, I have written a C library.
 The library contains an implementation of a linked-list-based stack,
 and contains functions for pushing values to the stack, and for attempting application.
 
-For application, I was forced to make the implementation of functions take an array of arguments,
+For function application, I was forced to make the implementation of functions take an array of arguments,
 instead of individual arguments, because application requires popping arguments off the stack until 
 there are enough to apply to a function, and this is not reasonably doable in C. Unfortunately, this
 makes the language very inefficient, as every function call requires a malloc for the array, a free
 for every item popped off the stack, and then a free on the call return to free the array.
+
+The library also contains the main function, which initialises the stack before calling the languages entry
+function ("sfl_entry"), and then frees the stack before ending the program. For testing purposes, I also currently
+print the top of the stack before doing this, as there is no IO in the language yet.
+
+The generated LLVM code is almost exclusivly made up of calls into this C library
