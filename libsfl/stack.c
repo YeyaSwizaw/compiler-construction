@@ -24,6 +24,13 @@ sfl_object stack_pop() {
     return tmp.data;
 }
 
+void stack_push_nth_obj(sfl_object* objs, sfl_int n) {
+    struct stack_node* new_node = malloc(sizeof(*new_node));
+    new_node->data = objs[n];
+    new_node->next = stack.head;
+    stack.head = new_node;
+}
+
 void stack_push_int(sfl_int value) {
     struct stack_node* new_node = malloc(sizeof(*new_node));
     new_node->data.tag = INT_VALUE;

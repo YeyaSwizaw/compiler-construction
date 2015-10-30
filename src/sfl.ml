@@ -4,7 +4,7 @@
 open Core.Std
 open Flags
 
-let run filename emit_llvm emit_ast output opt_flags () =
+let run filename emit_llvm emit_fns emit_ast output opt_flags () =
     try
         (* Open a file *)
         let chan = In_channel.create filename in
@@ -14,6 +14,14 @@ let run filename emit_llvm emit_ast output opt_flags () =
             ~parser_callback:(fun prog -> 
                 if emit_ast then (
                     print_endline (Syntax.string_of_prog prog);
+                    false
+                ) else
+                    true
+            )
+
+            ~instr_callback:(fun code -> 
+                if emit_fns then (
+                    print_endline (Instr.string_of_fns code);
                     false
                 ) else
                     true
@@ -48,12 +56,13 @@ let () =
         empty 
         +> anon ("filename" %: file)
         +> flag "--emit-llvm" no_arg ~doc:" Output llvm ir to stdout"
+        +> flag "--emit-fns" no_arg ~doc:" Output fn instrs to stdout"
         +> flag "--emit-ast" no_arg ~doc:" Output ast representation to stdout"
         +> flag ~aliases:["-o"] "--output" (optional_with_default "a.out" file) ~doc:"filename The output filename"
         +> flag "--disable-cf" no_arg ~doc:" Disable constant folding optimisations"
     )
-    (fun filename emit_llvm emit_ast output disable_cf ->
-        run filename emit_llvm emit_ast output { 
+    (fun filename emit_llvm emit_fns emit_ast output disable_cf ->
+        run filename emit_llvm emit_fns emit_ast output { 
             cf=(not disable_cf) 
         }
     )
