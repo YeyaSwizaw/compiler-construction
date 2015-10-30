@@ -82,6 +82,7 @@ let string_of_fns fns =
 let generate_instructions opt_flags code =
     let next_id = let prev = ref 0 in (fun () -> prev := !prev + 1; !prev) in
 
+    let used_fns = ref Fns.empty in
     let result = ref Fns.empty in
     let errors = ref [] in
 
@@ -147,7 +148,10 @@ let generate_instructions opt_flags code =
         in
 
         let rec loop = function
-            | [] -> result := (Fns.add unique_name {args=fn_args; code=output} !result)
+            | [] -> (
+                used_fns := (Fns.add name unique_name !used_fns);
+                result := (Fns.add unique_name {args=fn_args; code=output} !result)
+            )
 
             | expr :: tl -> (match expr.Syntax.data with
                 (* Push simple values *)
@@ -179,18 +183,26 @@ let generate_instructions opt_flags code =
                             | Syntax.String s -> (Stack.push (PushConst (String s)) output; loop tl)
 
                             | Syntax.Function (fn_args, fn_code) -> (
-                                let fn_name = name ^ var_name ^ (string_of_int (next_id ())) in
-                                generate_function 
-                                    ~name:var_name 
-                                    ~unique_name:fn_name 
-                                    ~fn_args:fn_args
-                                    ~args:(args @ fn_args) 
-                                    ~parent_names:((name, unique_name) :: parent_names)
-                                    fn_code.Syntax.code
-                                    (fn_code.Syntax.env :: env :: parents);
+                                try
+                                    let fn_name = Fns.find var_name !used_fns in
+                                    Stack.push (PushFn (Named fn_name)) output;
+                                    loop tl
 
-                                Stack.push (PushFn (Named fn_name)) output;
-                                loop tl
+                                with
+                                    Not_found -> (
+                                        let fn_name = name ^ var_name ^ (string_of_int (next_id ())) in
+                                        generate_function 
+                                            ~name:var_name 
+                                            ~unique_name:fn_name 
+                                            ~fn_args:fn_args
+                                            ~args:(args @ fn_args) 
+                                            ~parent_names:((name, unique_name) :: parent_names)
+                                            fn_code.Syntax.code
+                                            (fn_code.Syntax.env :: env :: parents);
+
+                                        Stack.push (PushFn (Named fn_name)) output;
+                                        loop tl
+                                    )
                             )
 
                             | Syntax.Ident n -> loop ({Syntax.data=(Syntax.Value (Syntax.Ident n)); Syntax.location=val_chunk.Syntax.location} :: tl)
@@ -211,18 +223,26 @@ let generate_instructions opt_flags code =
                                         | Syntax.String s -> (Stack.push (PushConst (String s)) output; loop tl)
 
                                         | Syntax.Function (fn_args, fn_code) -> (
-                                            let fn_name = name ^ var_name ^ (string_of_int (next_id ())) in
-                                            generate_function 
-                                                ~name:var_name 
-                                                ~unique_name:fn_name 
-                                                ~fn_args:fn_args
-                                                ~args:(args @ fn_args) 
-                                                ~parent_names:((name, unique_name) :: parent_names)
-                                                fn_code.Syntax.code
-                                                (fn_code.Syntax.env :: env :: parents);
+                                            try
+                                                let fn_name = Fns.find var_name !used_fns in
+                                                Stack.push (PushFn (Named fn_name)) output;
+                                                loop tl
 
-                                            Stack.push (PushFn (Named fn_name)) output;
-                                            loop tl
+                                            with
+                                                Not_found -> (
+                                                    let fn_name = name ^ var_name ^ (string_of_int (next_id ())) in
+                                                    generate_function 
+                                                        ~name:var_name 
+                                                        ~unique_name:fn_name 
+                                                        ~fn_args:fn_args
+                                                        ~args:(args @ fn_args) 
+                                                        ~parent_names:((name, unique_name) :: parent_names)
+                                                        fn_code.Syntax.code
+                                                        (fn_code.Syntax.env :: env :: parents);
+
+                                                    Stack.push (PushFn (Named fn_name)) output;
+                                                    loop tl
+                                                )
                                         )
 
                                         | Syntax.Ident n -> loop ({Syntax.data=(Syntax.Value (Syntax.Ident n)); Syntax.location=var_chunk.Syntax.location} :: tl)

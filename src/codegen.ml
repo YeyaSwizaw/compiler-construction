@@ -77,13 +77,12 @@ let generate_code instrs =
                 let argc = List.length ((Instr.Fns.find s instrs).Instr.args) in
 
                 try
-                    let fn_block = Fns.find s !fns in
-                    call fn_stack_push_fn [| block_address call_fn fn_block; const_int int_t argc |]
+                    let _ = Fns.find s !fns in
+                    call fn_stack_push_fn [| const_bitcast call_fn ptr_t; const_int int_t argc |]
                 with
                     Not_found -> (
                         generate_function s (Instr.Fns.find s instrs);
                         position_at_end block bld;
-                        let fn_block = Fns.find s !fns in
                         call fn_stack_push_fn [| const_bitcast call_fn ptr_t; const_int int_t argc |]
                     )
             )
