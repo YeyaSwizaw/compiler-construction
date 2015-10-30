@@ -21,6 +21,7 @@ void stack_free();
 
 sfl_object stack_pop();
 
+void stack_push_nth_obj(sfl_object*, sfl_int);
 void stack_push_int(sfl_int);
 void stack_push_fn(void*, sfl_int);
 void stack_push_add();
