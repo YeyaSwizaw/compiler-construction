@@ -1,0 +1,10 @@
+To implement the language stack, I have written a C library.
+
+The library contains an implementation of a linked-list-based stack,
+and contains functions for pushing values to the stack, and for attempting application.
+
+For application, I was forced to make the implementation of functions take an array of arguments,
+instead of individual arguments, because application requires popping arguments off the stack until 
+there are enough to apply to a function, and this is not reasonably doable in C. Unfortunately, this
+makes the language very inefficient, as every function call requires a malloc for the array, a free
+for every item popped off the stack, and then a free on the call return to free the array.
