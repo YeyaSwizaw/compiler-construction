@@ -3,15 +3,10 @@ implemented in OCaml for my third year Compiler Construction module.
 
 ## Compilation
 
-There are two parts to the repository: the actual compiler, and a runtime
-library for the language. The runtime library is written in C and 
-iscompiled using clang, and has no other dependencies. 
-The compiler, written in OCaml has three dependencies, 
-which can easily be installed using opam:
+The compiler has two dependencies, which can be easily installed with opam:
 
 ```
 # opam install core
-# opam isntall llvm
 # opam install ansiterminal
 ```
 
@@ -21,7 +16,7 @@ A Makefile is provided for easy compilation of everything
 # make
 ```
 
-This will compiler the target and the tests, run the tests, then compile the library
+This will compiler the target and the tests, and then run the tests
 
 ## Language
 

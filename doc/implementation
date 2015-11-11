@@ -1,3 +1,6 @@
+--------------------------------------------------
+The following is out of date but kept for the sake of keeping
+
 To implement the language stack, I have written a C library.
 
 The library contains an implementation of a linked-list-based stack,
@@ -14,3 +17,5 @@ function ("sfl_entry"), and then frees the stack before ending the program. For 
 print the top of the stack before doing this, as there is no IO in the language yet.
 
 The generated LLVM code is almost exclusivly made up of calls into this C library
+
+--------------------------------------------------
