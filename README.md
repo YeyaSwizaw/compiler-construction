@@ -56,7 +56,8 @@ swap: a -> b -> {
 
 This can also be used with non-function values, however it is most useful for defining reusable functions.
 
-Runnable examples can be found in ```doc/examples``` in the repository.
+Runnable examples can be found in ```doc/examples``` in the repository. Try changing the numbers and seeing
+how quickly things break!
 
 ## Optimisations
 Currently, the compiler does a basic constant folding optimisation, which executes basic mathematical expressions.
