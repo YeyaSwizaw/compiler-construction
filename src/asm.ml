@@ -81,7 +81,6 @@ let push_block_item n = function
     movq    %r8, " ^ (string_of_int n) ^ "(%rdx, %rax, 8)
     movq    \\$" ^ name ^ ", (%r8)
     movq    \\$" ^ (string_of_int args) ^ ", 8(%r8)
-inc_here_" ^ (string_of_int (unique_id ())) ^ ":
     leaq    16(%r8), %r8
     movq    %r8, storage_pos(%rip)
 "
@@ -114,7 +113,6 @@ arg_loop_" ^ n ^ ":
     pushq   (%rdx, %rax, 8)
     cmp     \\$0, %rcx
     jne     arg_loop_" ^ n ^ "
-sub_here_" ^ n ^ ":
     movq    %rax, stack_pos(%rip)
     movq    %r10, storage_pos(%rip)
     pushq   %rbp
