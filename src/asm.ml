@@ -105,8 +105,8 @@ arg_loop_" ^ n ^ ":
 
 let op_block op =
     if op = "add" then
-"add:
-    movq    24(%rsp), %rsi
+(function_begin op) ^
+"    movq    24(%rsp), %rsi
     addq    16(%rsp), %rsi
     movq    stack_pos(%rip), %rax
     leaq    1(%rax), %rdx
@@ -115,4 +115,39 @@ let op_block op =
     movq    %rsi, (%rdx, %rax, 8)
 " ^ (function_end 2)
 
+    else if op = "sub" then
+(function_begin op) ^
+"    movq    24(%rsp), %rsi
+    subq    16(%rsp), %rsi
+    movq    stack_pos(%rip), %rax
+    leaq    1(%rax), %rdx
+    movq    %rdx, stack_pos(%rip)
+    movq    stack(%rip), %rdx
+    movq    %rsi, (%rdx, %rax, 8)
+" ^ (function_end 2)
+
+    else if op = "mul" then
+(function_begin op) ^
+"    movq    24(%rsp), %rsi
+    imulq    16(%rsp), %rsi
+    movq    stack_pos(%rip), %rax
+    leaq    1(%rax), %rdx
+    movq    %rdx, stack_pos(%rip)
+    movq    stack(%rip), %rdx
+    movq    %rsi, (%rdx, %rax, 8)
+" ^ (function_end 2)
+
+    else if op = "div" then
+(function_begin op) ^
+"    movq    24(%rsp), %rax
+    cqto
+    idivq    16(%rsp)
+    movq    stack_pos(%rip), %rsi
+    leaq    1(%rsi), %rdx
+    movq    %rdx, stack_pos(%rip)
+    movq    stack(%rip), %rdx
+    movq    %rax, (%rdx, %rsi, 8)
+" ^ (function_end 2)
+
     else ""
+

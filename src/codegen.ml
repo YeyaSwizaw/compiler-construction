@@ -19,19 +19,20 @@ let generate_code instrs =
             ((List.length code.Instr.args) - i) * 8
         in
 
+        let push_fn args name =
+            Queue.push (`Int args) push_queue;
+            Queue.push (`Fn name) push_queue;
+            used_fns := S.add name !used_fns
+        in
+
         let generate_expr = function
             | Instr.PushConst (Instr.Int i) -> Queue.push (`Int i) push_queue
             | Instr.PushArg name -> Queue.push (`Arg (arg_idx name)) push_queue
-            | Instr.PushFn (Instr.BinOp Instr.Add) -> begin
-                Queue.push (`Int 2) push_queue;
-                Queue.push (`Fn "add") push_queue;
-                used_fns := S.add "add" !used_fns
-            end
-
-            | Instr.PushFn (Instr.Named s) -> begin
-                Queue.push (`Int (List.length (Instr.Fns.find s instrs).Instr.args)) push_queue;
-                Queue.push (`Fn s) push_queue;
-            end
+            | Instr.PushFn (Instr.BinOp Instr.Add) -> push_fn 2 "add"
+            | Instr.PushFn (Instr.BinOp Instr.Sub) -> push_fn 2 "sub"
+            | Instr.PushFn (Instr.BinOp Instr.Mul) -> push_fn 2 "mul"
+            | Instr.PushFn (Instr.BinOp Instr.Div) -> push_fn 2 "div"
+            | Instr.PushFn (Instr.Named s) -> push_fn (List.length (Instr.Fns.find s instrs).Instr.args) s
 
             | other -> begin
                 if not (Queue.is_empty push_queue) then begin
