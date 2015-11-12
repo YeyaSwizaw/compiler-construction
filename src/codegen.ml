@@ -20,8 +20,7 @@ let generate_code instrs =
         in
 
         let push_fn args name =
-            Queue.push (`Int args) push_queue;
-            Queue.push (`Fn name) push_queue;
+            Queue.push (`Fn (name, args)) push_queue;
             used_fns := S.add name !used_fns
         in
 
