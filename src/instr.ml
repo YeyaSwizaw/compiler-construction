@@ -90,15 +90,16 @@ let generate_instructions opt_flags code =
         let output = Stack.create () in
 
         let apply_binop op v1 v2 = match (op, v1, v2) with
-            | (Add, Int i1, Int i2) -> Stack.push (PushConst (Int (i1 + i2))) output
-            | (Sub, Int i1, Int i2) -> Stack.push (PushConst (Int (i1 - i2))) output
-            | (Mul, Int i1, Int i2) -> Stack.push (PushConst (Int (i1 * i2))) output
-            | (Div, Int i1, Int i2) -> Stack.push (PushConst (Int (i1 / i2))) output
-            | (Eq, Int i1, Int i2) -> Stack.push (PushConst (Int (if i1 = i2 then 1 else 0))) output
-            | (Gt, Int i1, Int i2) -> Stack.push (PushConst (Int (if i1 > i2 then 1 else 0))) output
-            | (Lt, Int i1, Int i2) -> Stack.push (PushConst (Int (if i1 < i2 then 1 else 0))) output
+            | (Add, Int i1, Int i2) -> Errors.Ok (Stack.push (PushConst (Int (i1 + i2))) output)
+            | (Sub, Int i1, Int i2) -> Errors.Ok (Stack.push (PushConst (Int (i1 - i2))) output)
+            | (Mul, Int i1, Int i2) -> Errors.Ok (Stack.push (PushConst (Int (i1 * i2))) output)
+            | (Div, Int i1, Int i2) -> Errors.Ok (Stack.push (PushConst (Int (i1 / i2))) output)
+            | (Eq, Int i1, Int i2) -> Errors.Ok (Stack.push (PushConst (Int (if i1 = i2 then 1 else 0))) output)
+            | (Gt, Int i1, Int i2) -> Errors.Ok (Stack.push (PushConst (Int (if i1 > i2 then 1 else 0))) output)
+            | (Lt, Int i1, Int i2) -> Errors.Ok (Stack.push (PushConst (Int (if i1 < i2 then 1 else 0))) output)
 
             (* TODO: endless patterns *)
+            | _ -> Errors.Err ()
         in
 
         let rec pop_args acc n = if n = 0 then
@@ -117,7 +118,14 @@ let generate_instructions opt_flags code =
                 match Stack.pop output with
                     | PushFn (BinOp op) -> (
                         match pop_args [] 2 with
-                            | [a2; a1] -> apply_binop op a1 a2
+                            | [a2; a1] -> begin match apply_binop op a1 a2 with
+                                | Errors.Ok(()) -> ()
+                                | Errors.Err(()) -> begin
+                                    List.iter (fun thing -> Stack.push (PushConst thing) output) [a2; a1];
+                                    Stack.push (PushFn (BinOp op)) output;
+                                    Stack.push (Apply Full) output;
+                                end
+                            end
                             | other -> (
                                 List.iter (fun thing -> Stack.push (PushConst thing) output) other;
                                 Stack.push (PushFn (BinOp op)) output;

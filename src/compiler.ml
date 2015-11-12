@@ -58,7 +58,7 @@ let run ?parser_callback ?instr_callback ?codegen_callback ?filename ?(opt_flags
     match compiler_result with
         | Continue (Errors.Ok code) -> (
             let command = "echo \"" ^ code ^ "\" | cc -o " ^ output ^ " -xassembler -" in
-            Sys.command command;
+            ignore (Sys.command command);
             Errors.Ok(())
         )
 
