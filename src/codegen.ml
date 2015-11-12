@@ -3,6 +3,10 @@
 
 module S = Set.Make(String)
 
+let rec idx item = function
+    | [] -> 0
+    | hd::tl -> if item = hd then 0 else 1 + (idx item tl)
+
 let generate_code instrs = 
     let asm = Buffer.create 1024 in
     let used_fns = ref S.empty in
@@ -10,12 +14,23 @@ let generate_code instrs =
     let generate_code code = 
         let push_queue = Queue.create () in
 
+        let arg_idx item =
+            let i = idx item code.Instr.args in
+            ((List.length code.Instr.args) - i) * 8
+        in
+
         let generate_expr = function
             | Instr.PushConst (Instr.Int i) -> Queue.push (`Int i) push_queue
+            | Instr.PushArg name -> Queue.push (`Arg (arg_idx name)) push_queue
             | Instr.PushFn (Instr.BinOp Instr.Add) -> begin
                 Queue.push (`Int 2) push_queue;
-                Queue.push (`Add) push_queue;
+                Queue.push (`Fn "add") push_queue;
                 used_fns := S.add "add" !used_fns
+            end
+
+            | Instr.PushFn (Instr.Named s) -> begin
+                Queue.push (`Int (List.length (Instr.Fns.find s instrs).Instr.args)) push_queue;
+                Queue.push (`Fn s) push_queue;
             end
 
             | other -> begin
@@ -25,7 +40,7 @@ let generate_code instrs =
                 end;
 
                 begin match other with
-                    | Instr.Apply Instr.Full -> Buffer.add_string asm (Asm.apply_block)
+                    | Instr.Apply Instr.Full -> Buffer.add_string asm (Asm.apply_block ())
                 end;
             end
         in
@@ -49,7 +64,7 @@ let generate_code instrs =
         end else begin
             Buffer.add_string asm (Asm.function_begin name);
             generate_code code;
-            Buffer.add_string asm Asm.function_end
+            Buffer.add_string asm (Asm.function_end (List.length code.Instr.args))
         end
     in
 

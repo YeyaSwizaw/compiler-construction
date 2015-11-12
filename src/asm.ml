@@ -47,7 +47,7 @@ let function_begin name =
 name ^ ":
 "
 
-let function_end = 
+let function_end args = 
 "    ret
 "
 
@@ -57,8 +57,18 @@ let push_block_begin =
 "
 
 let push_block_item n = function
-    | `Int i -> "    movq    \\$" ^ (string_of_int i) ^ ", " ^ (string_of_int n) ^ "(%rdx, %rax, 8)\n"
-    | `Add -> "    movq    \\$add, " ^ (string_of_int n) ^ "(%rdx, %rax, 8)\n"
+    | `Int i -> 
+"    movq    \\$" ^ (string_of_int i) ^ ", " ^ (string_of_int n) ^ "(%rdx, %rax, 8)
+"
+
+    | `Arg i -> 
+"    movq    " ^ (string_of_int (i + 8)) ^ "(%rsp), %r9
+    movq    %r9, " ^ (string_of_int n) ^ "(%rdx, %rax, 8)
+"
+
+    | `Fn s -> 
+"    movq    \\$" ^ s ^ ", " ^ (string_of_int n) ^ "(%rdx, %rax, 8)
+"
 
 let push_block_end n = 
 "    leaq    " ^ (string_of_int n) ^ "(%rax), %rax
@@ -73,7 +83,7 @@ let push_block stack =
     Buffer.add_string buf (push_block_end (Queue.length stack));
     Buffer.contents buf
 
-let apply_block = 
+let apply_block () = 
     let n = string_of_int (unique_id ()) in
 "    movq    stack_pos(%rip), %rax
     subq    \\$2, %rax
@@ -88,20 +98,21 @@ arg_loop_" ^ n ^ ":
     cmp     \\$0, %rcx
     jne     arg_loop_" ^ n ^ "
     movq    %rax, stack_pos(%rip)
+    pushq   %rbp
     call    *%r8
-    movq    %rbp, %rsp
+    popq    %rsp
 "
 
 let op_block op =
     if op = "add" then
 "add:
-    movq    16(%rsp), %rsi
-    addq    8(%rsp), %rsi
+    movq    24(%rsp), %rsi
+    addq    16(%rsp), %rsi
     movq    stack_pos(%rip), %rax
     leaq    1(%rax), %rdx
     movq    %rdx, stack_pos(%rip)
     movq    stack(%rip), %rdx
     movq    %rsi, (%rdx, %rax, 8)
-    ret
-"
+" ^ (function_end 2)
+
     else ""
