@@ -11,7 +11,7 @@ let generate_code instrs =
     let asm = Buffer.create 1024 in
     let used_fns = ref S.empty in
 
-    let generate_code code = 
+    let generate_code curr_name code = 
         let push_queue = Queue.create () in
 
         let arg_idx item =
@@ -27,10 +27,13 @@ let generate_code instrs =
         let generate_expr = function
             | Instr.PushConst (Instr.Int i) -> Queue.push (`Int i) push_queue
             | Instr.PushArg name -> Queue.push (`Arg (arg_idx name)) push_queue
+            | Instr.PushSelf -> push_fn (List.length code.Instr.args) curr_name
             | Instr.PushFn (Instr.BinOp Instr.Add) -> push_fn 2 "add"
             | Instr.PushFn (Instr.BinOp Instr.Sub) -> push_fn 2 "sub"
             | Instr.PushFn (Instr.BinOp Instr.Mul) -> push_fn 2 "mul"
             | Instr.PushFn (Instr.BinOp Instr.Div) -> push_fn 2 "div"
+            | Instr.PushFn (Instr.BinOp Instr.Eq) -> push_fn 2 "eq_cmp"
+            | Instr.PushFn (Instr.TriOp Instr.Ite) -> push_fn 3 "ite"
             | Instr.PushFn (Instr.Named s) -> push_fn (List.length (Instr.Fns.find s instrs).Instr.args) s
 
             | other -> begin
@@ -58,12 +61,12 @@ let generate_code instrs =
     let generate_function name code =
         if name = "" then begin 
             Buffer.add_string asm Asm.main_begin;
-            generate_code code;
+            generate_code name code;
             Buffer.add_string asm Asm.debug_end;
             Buffer.add_string asm Asm.main_end;
         end else begin
             Buffer.add_string asm (Asm.function_begin name);
-            generate_code code;
+            generate_code name code;
             Buffer.add_string asm (Asm.function_end (List.length code.Instr.args))
         end
     in

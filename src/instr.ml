@@ -160,7 +160,7 @@ let generate_instructions opt_flags code =
                 | Syntax.Value (Syntax.String s) -> (Stack.push (PushConst (String s)) output; loop tl)
 
                 | Syntax.Value (Syntax.Function (fn_args, fn_code)) -> (
-                    let fn_name = string_of_int (next_id ()) in
+                    let fn_name = "anon" ^ (string_of_int (next_id ())) in
                     generate_function 
                         ~name:fn_name 
                         ~fn_args:fn_args

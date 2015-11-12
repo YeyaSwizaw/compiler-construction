@@ -168,5 +168,46 @@ let op_block op =
     movq    %rax, (%rdx, %rsi, 8)
 " ^ (function_end 2)
 
+    else if op = "eq_cmp" then
+(function_begin op) ^
+"    movq    24(%rsp), %rax
+    movq    16(%rsp), %rdx
+    cmp     %rax, %rdx
+    je      eq_cmp_true
+    movq    stack_pos(%rip), %rax
+    leaq    1(%rax), %rdx
+    movq    %rdx, stack_pos(%rip)
+    movq    stack(%rip), %rdx
+    movq    \\$0, (%rdx, %rax, 8)
+" ^ (function_end 2) ^
+"eq_cmp_true:
+    movq    stack_pos(%rip), %rax
+    leaq    1(%rax), %rdx
+    movq    %rdx, stack_pos(%rip)
+    movq    stack(%rip), %rdx
+    movq    \\$1, (%rdx, %rax, 8)
+" ^ (function_end 2)
+
+    else if op = "ite" then
+(function_begin op) ^
+"    movq    32(%rsp), %rax
+    cmp     \\$0, %rax
+    je      ite_false  
+    movq    stack_pos(%rip), %rax
+    leaq    1(%rax), %rdx
+    movq    %rdx, stack_pos(%rip)
+    movq    stack(%rip), %rdx
+    movq    24(%rsp), %rsi
+    movq    %rsi, (%rdx, %rax, 8)
+" ^ (function_end 3) ^
+"ite_false:
+    movq    stack_pos(%rip), %rax
+    leaq    1(%rax), %rdx
+    movq    %rdx, stack_pos(%rip)
+    movq    stack(%rip), %rdx
+    movq    16(%rsp), %rsi
+    movq    %rsi, (%rdx, %rax, 8)
+" ^ (function_end 3)
+
     else ""
 

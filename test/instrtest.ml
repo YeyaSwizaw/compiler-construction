@@ -76,7 +76,7 @@ let run () =
         instr_test "2 9 11 + () / ()" (Ok ":[]:Push[Int[10]]\n");
 
         (* Functions *)
-        instr_test "a -> { a }" (Ok ":[]:Push[Fn[1]]\n1:[a]:Push[Arg[a]]\n");
+        instr_test "a -> { a }" (Ok ":[]:Push[Fn[anon1]]\nanon1:[a]:Push[Arg[a]]\n");
         instr_test "fun: a -> { a }\nfun" (Ok ":[]:Push[Fn[fun1]]\nfun1:[a]:Push[Arg[a]]\n");
         instr_test "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[]:Apply[]Push[Fn[fun1]]Push[Int[5]]\nfun1:[a]:Apply[]Push[Fn[+]]Push[Int[3]]Push[Arg[a]]\n");
         instr_test "fun: a -> { a fun () }\n1 fun ()" (Ok ":[]:Apply[]Push[Fn[fun1]]Push[Int[1]]\nfun1:[a]:Apply[]Push[Self]Push[Arg[a]]\n");

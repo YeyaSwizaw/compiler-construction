@@ -1,0 +1,31 @@
+# This is an example factorial function
+# fact(0) = 0
+# fact(1) = 1
+# fact(2) = 2
+# fact(3) = 6
+
+# Define a function that pops one argument of the stack
+fact: n -> {
+    # Push n for later
+    n 
+
+    # Push the recursive case (n * fact(n - 1))
+    m -> {
+        1 m - () 
+        fact () 
+        m * ()
+    }
+
+    # Push the case when n is 0
+    m -> { 
+        1 
+    }
+
+    # Push the check
+    0 n = ()
+
+    # Apply if/else, then result
+    ? () ()
+}
+
+4 fact ()
