@@ -2,7 +2,7 @@
 (* Samuel Sleight *)
 
 open Lexing
-open Flags
+open Flag
 
 type 'a run_status =
     | Continue of 'a

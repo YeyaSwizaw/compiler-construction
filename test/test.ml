@@ -9,4 +9,7 @@ let () =
     print_newline ();
     AT.save_cursor ();
     Instrtest.run ();
+    print_newline ();
+    AT.save_cursor ();
+    Runtimetest.run ();
     print_newline ()

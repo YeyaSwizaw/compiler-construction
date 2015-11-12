@@ -5,4 +5,3 @@ type opt_flag_t = {
 let default_opt_flags = {
     cf=true;
 }
-

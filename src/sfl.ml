@@ -2,7 +2,7 @@
 (* Samuel Sleight *)
 
 open Core.Std
-open Flags
+open Flag
 
 let run filename emit_asm emit_fns emit_ast output opt_flags () =
     try

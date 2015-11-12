@@ -265,7 +265,7 @@ let generate_instructions opt_flags code =
 
                 (* Application - attempt constant fold *)
                 | Syntax.Apply Syntax.Full -> (
-                    if opt_flags.Flags.cf then (
+                    if opt_flags.Flag.cf then (
                         attempt_full_fold (); 
                         loop tl
                     ) else (
