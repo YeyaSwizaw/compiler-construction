@@ -22,10 +22,10 @@ fact: n -> {
     }
 
     # Push the check
-    0 n = ()
+    n 0 = ()
 
     # Apply if/else, then result
     ? () ()
 }
 
-4 fact ()
+12 fact ()

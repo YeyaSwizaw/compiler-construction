@@ -42,4 +42,4 @@ fib: n -> {
     n 0 1 fib_rec ()
 }
 
-11 fib ()
+47 fib ()

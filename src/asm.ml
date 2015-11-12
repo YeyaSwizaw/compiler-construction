@@ -16,10 +16,8 @@ stack_pos:
     .comm   stack, 8, 8
 storage_size:
     .quad   2048
-    .align 8
-storage_pos:
-    .quad   0
     .comm   storage, 8, 8
+    .comm   storage_pos, 8, 8
     .text
 "
 
@@ -32,6 +30,7 @@ main:
     movq    storage_size(%rip), %rdi
     call    malloc
     movq    %rax, storage(%rip)
+    movq    %rax, storage_pos(%rip)
 "
 
 let debug_end =
@@ -78,14 +77,13 @@ let push_block_item n = function
 "
 
     | `Fn (name, args) -> 
-"    movq    storage(%rip), %r8
-    movq    storage_pos(%rip), %r9
-    leaq    (%r8, %r9, 8), %rcx
-    movq    %rcx, " ^ (string_of_int n) ^ "(%rdx, %rax, 8)
-    movq    \\$" ^ name ^ ", (%rcx)
-    movq    \\$" ^ (string_of_int args) ^ ", 8(%rcx)
-    leaq    2(%r9), %r9
-    movq    %r9, storage_pos(%rip)
+"    movq    storage_pos(%rip), %r8
+    movq    %r8, " ^ (string_of_int n) ^ "(%rdx, %rax, 8)
+    movq    \\$" ^ name ^ ", (%r8)
+    movq    \\$" ^ (string_of_int args) ^ ", 8(%r8)
+inc_here_" ^ (string_of_int (unique_id ())) ^ ":
+    leaq    16(%r8), %r8
+    movq    %r8, storage_pos(%rip)
 "
 
 let push_block_end n = 
@@ -106,9 +104,9 @@ let apply_block () =
 "    movq    stack_pos(%rip), %rax
     subq    \\$1, %rax
     movq    stack(%rip), %rdx
-    movq    (%rdx, %rax, 8), %r9
-    movq    (%r9), %r8
-    movq    8(%r9), %rcx
+    movq    (%rdx, %rax, 8), %r10
+    movq    (%r10), %r8
+    movq    8(%r10), %rcx
     movq    %rsp, %rbp
 arg_loop_" ^ n ^ ":
     subq    \\$1, %rax
@@ -116,7 +114,9 @@ arg_loop_" ^ n ^ ":
     pushq   (%rdx, %rax, 8)
     cmp     \\$0, %rcx
     jne     arg_loop_" ^ n ^ "
+sub_here_" ^ n ^ ":
     movq    %rax, stack_pos(%rip)
+    movq    %r10, storage_pos(%rip)
     pushq   %rbp
     call    *%r8
     popq    %rsp
