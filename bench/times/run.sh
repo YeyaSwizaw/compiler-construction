@@ -21,3 +21,12 @@ echo
 echo "C:"
 cc times.c
 time ./a.out
+
+echo
+echo "Rust:"
+rustc times.rs -o a.out
+time ./a.out
+
+rm a.out
+rm times.native
+rm -rf _build

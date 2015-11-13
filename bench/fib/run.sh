@@ -21,3 +21,7 @@ echo
 echo "C:"
 cc fib.c
 time ./a.out
+
+rm a.out
+rm times.native
+rm -rf _build
