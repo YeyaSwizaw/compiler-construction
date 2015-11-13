@@ -1,0 +1,24 @@
+add_five: n -> {
+    n 5 + ()
+}
+
+times: n -> f -> x -> {
+    x f n
+
+    n -> f -> x -> {
+        x f ()
+        f
+        1 n - ()
+        times ()
+    }
+
+    n -> f -> x -> {
+        x
+    }
+
+    0 n = ()
+    
+    ? () ()
+}
+
+0 add_five 100000 times ()

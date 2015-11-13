@@ -15,7 +15,7 @@ stack_pos:
     .quad   0
     .comm   stack, 8, 8
 storage_size:
-    .quad   2048
+    .quad   4096
     .comm   storage, 8, 8
     .comm   storage_pos, 8, 8
     .text
@@ -114,6 +114,7 @@ arg_loop_" ^ n ^ ":
     cmp     \\$0, %rcx
     jne     arg_loop_" ^ n ^ "
     movq    %rax, stack_pos(%rip)
+    addq    \\$16, %r10
     movq    %r10, storage_pos(%rip)
     pushq   %rbp
     call    *%r8
