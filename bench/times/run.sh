@@ -27,6 +27,13 @@ echo "Rust:"
 rustc times.rs -o a.out
 time ./a.out
 
+echo
+echo "Java:"
+javac times.java
+time java times
+
 rm a.out
 rm times.native
+rm times.class
+rm Func.class
 rm -rf _build

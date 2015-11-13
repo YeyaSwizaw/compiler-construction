@@ -4,7 +4,7 @@ long add_five(long x) {
     return x + 5;
 }
 
-long times(long n, long(*f)(long), long x) {
+long times(unsigned long n, long(*f)(long), long x) {
     long val = x;
     for(int i = 0; i < n; ++i) {
         val = f(val);

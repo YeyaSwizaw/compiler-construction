@@ -1,15 +1,15 @@
 #include <stdio.h>
 
-long fib_rec(long n, long acc1, long acc2) {
+unsigned long fib_rec(unsigned long n, unsigned long acc1, unsigned long acc2) {
     if(n == 0) {
         return acc2;
     } else {
-        long tmp = acc1 + acc2;
+        unsigned long tmp = acc1 + acc2;
         return fib_rec(n - 1, tmp, acc1);
     }
 }
 
-long fib(long n) {
+unsigned long fib(unsigned long n) {
     return fib_rec(n, 0, 1);
 }
 

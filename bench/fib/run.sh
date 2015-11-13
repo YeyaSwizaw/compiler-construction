@@ -22,6 +22,11 @@ echo "C:"
 cc fib.c
 time ./a.out
 
+echo
+echo "Rust:"
+rustc fib.rs -o a.out
+time ./a.out
+
 rm a.out
-rm times.native
+rm fib.native
 rm -rf _build
