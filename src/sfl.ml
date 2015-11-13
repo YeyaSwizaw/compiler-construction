@@ -4,7 +4,7 @@
 open Core.Std
 open Flag
 
-let run filename emit_asm emit_fns emit_ast output opt_flags () =
+let run filename emit_asm emit_fns emit_ast output size_flags opt_flags () =
     try
         (* Open a file *)
         let chan = In_channel.create filename in
@@ -37,6 +37,7 @@ let run filename emit_asm emit_fns emit_ast output opt_flags () =
 
             ~filename: filename
             ~opt_flags: opt_flags
+            ~size_flags: size_flags
             ~output: output
             chan 
         in
@@ -59,11 +60,18 @@ let () =
         +> flag "--emit-fns" no_arg ~doc:" Output fn instrs to stdout"
         +> flag "--emit-ast" no_arg ~doc:" Output ast representation to stdout"
         +> flag ~aliases:["-o"] "--output" (optional_with_default "a.out" file) ~doc:"filename The output filename"
-        +> flag "--disable-cf" no_arg ~doc:" Disable constant folding optimisations"
+        +> flag "--stack-size" (optional_with_default 1024 int) ~doc:"size The size of the program stack"
+        +> flag "--storage-size" (optional_with_default 4096 int) ~doc:"size The size of the program storage"
+        +> flag "--no-constant-folding" no_arg ~doc:" Disable constant folding optimisations"
+        +> flag "--no-storage-cleaning" no_arg ~doc:" Disable storage cleaning optimisation (will fix some crashes, but use more storage)"
     )
-    (fun filename emit_asm emit_fns emit_ast output disable_cf ->
-        run filename emit_asm emit_fns emit_ast output { 
-            cf=(not disable_cf) 
+    (fun filename emit_asm emit_fns emit_ast output stack_size storage_size disable_cf disable_sc ->
+        run filename emit_asm emit_fns emit_ast output {
+            stack=stack_size;
+            storage=storage_size
+        } { 
+            cf=(not disable_cf);
+            sc=(not disable_sc)
         }
     )
   |> Command.run

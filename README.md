@@ -69,7 +69,17 @@ x y + ()
 
 where ```x``` and ```y``` are constant values will get optimised to be simply ```x + y```.
 
-This optimisation can be disabled with the flag ```--disable-cf```
+This optimisation can be disabled with the flag ```--no-constant-folding```
+
+## Flags
+* ```--no-constant-folding``` disables the constant folding optimisation.
+
+* ```--no-storage-cleaning``` disables the cleaning of storage memory when it is accessed. This will likely fix
+some bugs in compiled code, but will result in much more memory usage.
+
+* ```--stack-size <int>``` sets the size of the initial stack.
+
+* ```--storage-size <int>``` sets the size of the initial storage stack.
 
 ## Reference
 Values can be integers, "strings" 'chars' or functions.

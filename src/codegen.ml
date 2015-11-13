@@ -7,7 +7,7 @@ let rec idx item = function
     | [] -> 0
     | hd::tl -> if item = hd then 0 else 1 + (idx item tl)
 
-let generate_code instrs = 
+let generate_code opt_flags size_flags instrs = 
     let asm = Buffer.create 1024 in
     let used_fns = ref S.empty in
 
@@ -43,7 +43,7 @@ let generate_code instrs =
                 end;
 
                 begin match other with
-                    | Instr.Apply Instr.Full -> Buffer.add_string asm (Asm.apply_block ())
+                    | Instr.Apply Instr.Full -> Buffer.add_string asm (Asm.apply_block opt_flags ())
                 end;
             end
         in
@@ -71,7 +71,7 @@ let generate_code instrs =
         end
     in
 
-    Buffer.add_string asm Asm.data_segment;
+    Buffer.add_string asm (Asm.data_segment size_flags);
     Instr.Fns.iter generate_function instrs;
     S.iter (fun op -> Buffer.add_string asm (Asm.op_block op)) !used_fns;
 

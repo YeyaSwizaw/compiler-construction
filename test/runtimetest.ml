@@ -32,8 +32,9 @@ let runtime_test ?(cf=true) code output =
         Out_channel.output_string test_file (code);
         Out_channel.close test_file;
 
-        let opt_flags = {
-            Flag.cf=cf
+        let opt_flags = { 
+            Flag.default_opt_flags with
+                Flag.cf=cf
         } in
 
         let test_file = In_channel.create test_filename in

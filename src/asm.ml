@@ -3,19 +3,19 @@
 
 let unique_id = let prev = ref (-1) in (fun () -> prev := !prev + 1; !prev) 
 
-let data_segment = 
+let data_segment size_flags = 
 "    .data
 int_format_str:
     .asciz \\\"%d\\n\\\"
     .align  8
 stack_size:
-    .quad   1024
+    .quad   " ^ (string_of_int size_flags.Flag.stack) ^ "
     .align 8
 stack_pos:
     .quad   0
     .comm   stack, 8, 8
 storage_size:
-    .quad   4096
+    .quad   " ^ (string_of_int size_flags.Flag.storage) ^ "
     .comm   storage, 8, 8
     .comm   storage_pos, 8, 8
     .text
@@ -98,7 +98,7 @@ let push_block stack =
     Buffer.add_string buf (push_block_end (Queue.length stack));
     Buffer.contents buf
 
-let apply_block () = 
+let apply_block opt_flags () = 
     let n = string_of_int (unique_id ()) in
 "    movq    stack_pos(%rip), %rax
     subq    \\$1, %rax
@@ -114,9 +114,11 @@ arg_loop_" ^ n ^ ":
     cmp     \\$0, %rcx
     jne     arg_loop_" ^ n ^ "
     movq    %rax, stack_pos(%rip)
-    addq    \\$16, %r10
+" ^ (if opt_flags.Flag.sc then 
+"    addq    \\$16, %r10
     movq    %r10, storage_pos(%rip)
-    pushq   %rbp
+" else "") ^
+"    pushq   %rbp
     call    *%r8
     popq    %rsp
 "
