@@ -33,6 +33,8 @@ let generate_code opt_flags size_flags instrs =
             | Instr.PushFn (Instr.BinOp Instr.Mul) -> push_fn 2 "mul"
             | Instr.PushFn (Instr.BinOp Instr.Div) -> push_fn 2 "div"
             | Instr.PushFn (Instr.BinOp Instr.Eq) -> push_fn 2 "eq_cmp"
+            | Instr.PushFn (Instr.BinOp Instr.Lt) -> push_fn 2 "lt_cmp"
+            | Instr.PushFn (Instr.BinOp Instr.Gt) -> push_fn 2 "gt_cmp"
             | Instr.PushFn (Instr.TriOp Instr.Ite) -> push_fn 3 "ite"
             | Instr.PushFn (Instr.Named s) -> push_fn (List.length (Instr.Fns.find s instrs).Instr.args) s
 

@@ -189,6 +189,46 @@ let op_block op =
     movq    \\$1, (%rdx, %rax, 8)
 " ^ (function_end 2)
 
+    else if op = "lt_cmp" then
+(function_begin op) ^
+"    movq    24(%rsp), %rdx
+    movq    16(%rsp), %rax
+    cmp     %rax, %rdx
+    jl      lt_cmp_true
+    movq    stack_pos(%rip), %rax
+    leaq    1(%rax), %rdx
+    movq    %rdx, stack_pos(%rip)
+    movq    stack(%rip), %rdx
+    movq    \\$0, (%rdx, %rax, 8)
+" ^ (function_end 2) ^
+"lt_cmp_true:
+    movq    stack_pos(%rip), %rax
+    leaq    1(%rax), %rdx
+    movq    %rdx, stack_pos(%rip)
+    movq    stack(%rip), %rdx
+    movq    \\$1, (%rdx, %rax, 8)
+" ^ (function_end 2)
+
+    else if op = "gt_cmp" then
+(function_begin op) ^
+"    movq    24(%rsp), %rdx
+    movq    16(%rsp), %rax
+    cmp     %rax, %rdx
+    jg      gt_cmp_true
+    movq    stack_pos(%rip), %rax
+    leaq    1(%rax), %rdx
+    movq    %rdx, stack_pos(%rip)
+    movq    stack(%rip), %rdx
+    movq    \\$0, (%rdx, %rax, 8)
+" ^ (function_end 2) ^
+"gt_cmp_true:
+    movq    stack_pos(%rip), %rax
+    leaq    1(%rax), %rdx
+    movq    %rdx, stack_pos(%rip)
+    movq    stack(%rip), %rdx
+    movq    \\$1, (%rdx, %rax, 8)
+" ^ (function_end 2)
+
     else if op = "ite" then
 (function_begin op) ^
 "    movq    32(%rsp), %rax

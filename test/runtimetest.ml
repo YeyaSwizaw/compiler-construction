@@ -66,6 +66,10 @@ let run () =
         runtime_test "2 8 / ()" "4\n";
         runtime_test "2 3 1 ? ()" "3\n";
         runtime_test "2 3 0 ? ()" "2\n";
+        runtime_test "5 2 < ()" "1\n";
+        runtime_test "1 7 < ()" "0\n";
+        runtime_test "5 2 > ()" "0\n";
+        runtime_test "1 7 > ()" "1\n";
         runtime_test "5 5 = ()" "1\n";
         runtime_test "5 2 = ()" "0\n";
         runtime_test "3 6 = ()" "0\n";
@@ -80,6 +84,10 @@ let run () =
         runtime_test ~cf:false "2 8 / ()" "4\n";
         runtime_test ~cf:false "2 3 1 ? ()" "3\n";
         runtime_test ~cf:false "2 3 0 ? ()" "2\n";
+        runtime_test ~cf:false "5 2 < ()" "1\n";
+        runtime_test ~cf:false "1 7 < ()" "0\n";
+        runtime_test ~cf:false "5 2 > ()" "0\n";
+        runtime_test ~cf:false "1 7 > ()" "1\n";
         runtime_test ~cf:false "5 5 = ()" "1\n";
         runtime_test ~cf:false "5 2 = ()" "0\n";
         runtime_test ~cf:false "3 6 = ()" "0\n";
