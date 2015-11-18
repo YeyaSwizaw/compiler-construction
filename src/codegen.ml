@@ -14,11 +14,6 @@ let generate_code opt_flags size_flags instrs =
     let generate_code curr_name code = 
         let push_queue = Queue.create () in
 
-        let arg_idx item =
-            let i = idx item code.Instr.args in
-            ((List.length code.Instr.args) - i) * 8
-        in
-
         let push_fn args name =
             Queue.push (`Fn (name, args)) push_queue;
             used_fns := S.add name !used_fns
@@ -26,8 +21,8 @@ let generate_code opt_flags size_flags instrs =
 
         let generate_expr = function
             | Instr.PushConst (Instr.Int i) -> Queue.push (`Int i) push_queue
-            | Instr.PushArg name -> Queue.push (`Arg (arg_idx name)) push_queue
-            | Instr.PushSelf -> push_fn (List.length code.Instr.args) curr_name
+            | Instr.PushArg n -> Queue.push (`Arg n) push_queue
+            | Instr.PushSelf -> push_fn code.Instr.args curr_name
             | Instr.PushFn (Instr.BinOp Instr.Add) -> push_fn 2 "add"
             | Instr.PushFn (Instr.BinOp Instr.Sub) -> push_fn 2 "sub"
             | Instr.PushFn (Instr.BinOp Instr.Mul) -> push_fn 2 "mul"
@@ -36,7 +31,7 @@ let generate_code opt_flags size_flags instrs =
             | Instr.PushFn (Instr.BinOp Instr.Lt) -> push_fn 2 "lt_cmp"
             | Instr.PushFn (Instr.BinOp Instr.Gt) -> push_fn 2 "gt_cmp"
             | Instr.PushFn (Instr.TriOp Instr.Ite) -> push_fn 3 "ite"
-            | Instr.PushFn (Instr.Named s) -> push_fn (List.length (Instr.Fns.find s instrs).Instr.args) s
+            | Instr.PushFn (Instr.Named (s, n)) -> push_fn n s
 
             | other -> begin
                 if not (Queue.is_empty push_queue) then begin
@@ -50,9 +45,7 @@ let generate_code opt_flags size_flags instrs =
             end
         in
 
-        let stack = Stack.create () in
-        Stack.iter (fun item -> Stack.push item stack) code.Instr.code;
-        Stack.iter generate_expr stack;
+        List.iter generate_expr (List.rev code.Instr.code);
 
         if not (Queue.is_empty push_queue) then begin
             Buffer.add_string asm (Asm.push_block push_queue);
@@ -69,7 +62,7 @@ let generate_code opt_flags size_flags instrs =
         end else begin
             Buffer.add_string asm (Asm.function_begin name);
             generate_code name code;
-            Buffer.add_string asm (Asm.function_end (List.length code.Instr.args))
+            Buffer.add_string asm (Asm.function_end code.Instr.args)
         end
     in
 
