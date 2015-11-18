@@ -31,7 +31,6 @@ type instruction =
     | PushConst of value_t
     | PushFn of fn_t
     | PushArg of int
-    | PushSelf
     | Apply of apply_t
 
 module Fns = Map.Make(String)
@@ -69,8 +68,6 @@ let string_of_instr = function
 
     | PushArg i -> "Push[Arg[" ^ (string_of_int i) ^ "]]"
 
-    | PushSelf -> "Push[Self]"
-
     | Apply Full -> "Apply[]"
 
 let rec string_of_args = function
@@ -81,7 +78,7 @@ let rec string_of_args = function
 let string_of_fns fns = 
     Fns.fold 
         (fun name fn acc -> 
-            let fn_str = List.fold_left (fun acc instr -> (string_of_instr instr) ^ acc) "" fn.code in
+            let fn_str = List.fold_left (fun acc instr -> acc ^ (string_of_instr instr)) "" fn.code in
             acc ^ name ^ ":[" ^ (string_of_int fn.args) ^ "]:" ^ fn_str ^ "\n"
         ) fns ""
 
@@ -103,6 +100,7 @@ let generate_instructions opt_flags code =
     } 
     in
 
+    let used_fns = ref Fns.empty in
     let result = ref Fns.empty in
 
     let rec idx item = function
@@ -113,32 +111,47 @@ let generate_instructions opt_flags code =
         end
     in
 
-    let rec env_lookup ?(step=1) ?(total_args=0) name env = 
-        let rec list_lookup = function
-            | [] -> None
-            | `Int (n, i) :: tl -> if name = n then Some (PushConst (Int i)) else list_lookup tl
-            | `Char (n, c) :: tl -> if name = n then Some (PushConst (Char c)) else list_lookup tl
-            | `String (n, s) :: tl -> if name = n then Some (PushConst (String s)) else list_lookup tl
-            | `Ident (n, i) :: tl -> if name = n then Some (env_lookup ~step:step ~total_args:total_args i env) else list_lookup tl
-            | `Fn (n, a, p) :: tl -> if name = n then begin
-                list_lookup tl
-            end else
-                list_lookup tl
-        in
+    let rec env_lookup ?(fn_name="") name env = 
+        try
+            (* Check for function *)
+            let (fn_name, n) = Fns.find name !used_fns in
+            PushFn (Named (fn_name, n))
+        with
+            Not_found -> begin
+                (* Lookup in environment *)
+                let rec list_lookup = function
+                    | [] -> None
+                    | `Int (n, i) :: tl -> if name = n then Some (PushConst (Int i)) else list_lookup tl
+                    | `Char (n, c) :: tl -> if name = n then Some (PushConst (Char c)) else list_lookup tl
+                    | `String (n, s) :: tl -> if name = n then Some (PushConst (String s)) else list_lookup tl
+                    | `Ident (n, i) :: tl -> if name = n then Some (env_lookup i env) else list_lookup tl
+                    | `Fn (n, a, p) :: tl -> if name = n then begin
+                        let fn_name = fn_name ^ "_" ^ name in
+                        used_fns := Fns.add name (fn_name, List.length a) !used_fns;
+                        let fn_env = make_env ~parent:(Some env) ~name:fn_name ~args:a p.Syntax.env in
+                        let fn = generate_function [] fn_env p.Syntax.code in
+                        result := Fns.add fn_name { code=fn; args=(List.length a); } !result;
+                        Some (PushFn (Named (fn_name, List.length a)))
+                    end else
+                        list_lookup tl
+                in
 
-        match list_lookup env.env with
-            | Some thing -> thing
-            | None -> begin
-                match idx name env.args with
-                    | Some n -> PushArg ((n + (2 * step - 1) + total_args + 1) * 8)
-                    | None -> 
-                        let (Some parent) = env.parent in 
-                        env_lookup ~step:(step + 1) ~total_args:(total_args + (List.length env.args)) name parent
+                match list_lookup env.env with
+                    | Some thing -> thing
+                    | None -> begin
+                        (* Lookup in arguments *)
+                        match idx name env.args with
+                            | Some n -> PushArg ((List.length env.args) - n + 1)
+                            | None -> 
+                                (* Lookup in parent *)
+                                let (Some parent) = env.parent in 
+                                env_lookup 
+                                    ~fn_name:(env.name ^ "_" ^ fn_name)
+                                    name parent
+                    end
             end
 
-    in
-
-    let rec generate_function instrs env code = match code with
+    and generate_function instrs env code = match code with
         | [] -> instrs
         | exp_block :: tl -> begin match exp_block.Syntax.data with
             (* Push simple values *)
@@ -156,8 +169,20 @@ let generate_instructions opt_flags code =
                 generate_function (PushFn (Named (fn_name, List.length fn_args)) :: instrs) env tl
             end
 
-            | Syntax.Value (Syntax.Ident i) -> generate_function (env_lookup i env :: instrs) env tl 
+            (* Push named value *)
+            | Syntax.Value (Syntax.Ident i) -> generate_function ((env_lookup i env) :: instrs) env tl 
 
+            (* Push operators *)
+            | Syntax.Op (Syntax.Plus) -> generate_function (PushFn (BinOp Add) :: instrs) env tl
+            | Syntax.Op (Syntax.Minus) -> generate_function (PushFn (BinOp Sub) :: instrs) env tl
+            | Syntax.Op (Syntax.Times) -> generate_function (PushFn (BinOp Mul) :: instrs) env tl
+            | Syntax.Op (Syntax.Divide) -> generate_function (PushFn (BinOp Div) :: instrs) env tl
+            | Syntax.Op (Syntax.Lt) -> generate_function (PushFn (BinOp Lt) :: instrs) env tl
+            | Syntax.Op (Syntax.Gt) -> generate_function (PushFn (BinOp Gt) :: instrs) env tl
+            | Syntax.Op (Syntax.Eq) -> generate_function (PushFn (BinOp Eq) :: instrs) env tl
+            | Syntax.Op (Syntax.IfThenElse) -> generate_function (PushFn (TriOp Ite) :: instrs) env tl
+
+            (* Apply function *)
             | Syntax.Apply Syntax.Full -> generate_function (Apply Full :: instrs) env tl
         end
     in

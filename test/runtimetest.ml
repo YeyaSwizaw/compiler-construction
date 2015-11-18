@@ -57,7 +57,7 @@ let runtime_test ?(cf=true) code output =
 
 let run () =
     let tests = [
-        runtime_test "1" "1\n";
+        runtime_test "1\n" "1\n";
         runtime_test "5 7" "7\n";
         runtime_test "number\nnumber: 13" "13\n";
         runtime_test "6 3 + ()" "9\n";

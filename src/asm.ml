@@ -72,7 +72,7 @@ let push_block_item n = function
 "
 
     | `Arg i -> 
-"    movq    " ^ (string_of_int i) ^ "(%rsp), %r9
+"    movq    " ^ (string_of_int (i * 8)) ^ "(%rsp), %r9
     movq    %r9, " ^ (string_of_int n) ^ "(%rdx, %rax, 8)
 "
 

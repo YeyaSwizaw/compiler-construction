@@ -56,36 +56,36 @@ let instr_test ?(cf=true) code output =
 
 let run () = 
     let tests = [
-        instr_test "1" (Ok ":[]:Push[Int[1]]\n");
-        instr_test "\"hello\"" (Ok ":[]:Push[Str[hello]]\n");
-        instr_test "'x'" (Ok ":[]:Push[Char[x]]\n");
+        instr_test "1" (Ok ":[0]:Push[Int[1]]\n");
+        instr_test "\"hello\"" (Ok ":[0]:Push[Str[hello]]\n");
+        instr_test "'x'" (Ok ":[0]:Push[Char[x]]\n");
 
-        instr_test "+" (Ok ":[]:Push[Fn[+]]\n");
-        instr_test "-" (Ok ":[]:Push[Fn[-]]\n");
-        instr_test "*" (Ok ":[]:Push[Fn[*]]\n");
-        instr_test "/" (Ok ":[]:Push[Fn[/]]\n");
-        instr_test "=" (Ok ":[]:Push[Fn[=]]\n");
-        instr_test ">" (Ok ":[]:Push[Fn[>]]\n");
-        instr_test "<" (Ok ":[]:Push[Fn[<]]\n");
+        instr_test "+" (Ok ":[0]:Push[Fn[+]]\n");
+        instr_test "-" (Ok ":[0]:Push[Fn[-]]\n");
+        instr_test "*" (Ok ":[0]:Push[Fn[*]]\n");
+        instr_test "/" (Ok ":[0]:Push[Fn[/]]\n");
+        instr_test "=" (Ok ":[0]:Push[Fn[=]]\n");
+        instr_test ">" (Ok ":[0]:Push[Fn[>]]\n");
+        instr_test "<" (Ok ":[0]:Push[Fn[<]]\n");
 
-        instr_test "()" (Ok ":[]:Apply[]\n");
+        instr_test "()" (Ok ":[0]:Apply[]\n");
 
-        instr_test "num\nnum: 7" (Ok ":[]:Push[Int[7]]\n");
+        instr_test "num\nnum: 7" (Ok ":[0]:Push[Int[7]]\n");
 
         (* Simple constant folding *)
-        instr_test "2 9 +" (Ok ":[]:Push[Fn[+]]Push[Int[9]]Push[Int[2]]\n");
-        instr_test "2 9 + ()" (Ok ":[]:Push[Int[11]]\n");
-        instr_test "14 13 * ()" (Ok ":[]:Push[Int[182]]\n");
-        instr_test "2 6 / ()" (Ok ":[]:Push[Int[3]]\n");
-        instr_test "6 1 - ()" (Ok ":[]:Push[Int[-5]]\n");
-        instr_test "2 9 11 + () / ()" (Ok ":[]:Push[Int[10]]\n");
+        instr_test "2 9 +" (Ok ":[0]:Push[Fn[+]]Push[Int[9]]Push[Int[2]]\n");
+        instr_test "2 9 + ()" (Ok ":[0]:Push[Int[11]]\n");
+        instr_test "14 13 * ()" (Ok ":[0]:Push[Int[182]]\n");
+        instr_test "2 6 / ()" (Ok ":[0]:Push[Int[3]]\n");
+        instr_test "6 1 - ()" (Ok ":[0]:Push[Int[-5]]\n");
+        instr_test "2 9 11 + () / ()" (Ok ":[0]:Push[Int[10]]\n");
 
-        instr_test ~cf:false "2 9 +" (Ok ":[]:Push[Fn[+]]Push[Int[9]]Push[Int[2]]\n");
-        instr_test ~cf:false "2 9 + ()" (Ok ":[]:Apply[]Push[Fn[+]]Push[Int[9]]Push[Int[2]]\n");
-        instr_test ~cf:false "14 13 * ()" (Ok ":[]:Apply[]Push[Fn[*]]Push[Int[13]]Push[Int[14]]\n");
-        instr_test ~cf:false "2 6 / ()" (Ok ":[]:Apply[]Push[Fn[/]]Push[Int[6]]Push[Int[2]]\n");
-        instr_test ~cf:false "6 1 - ()" (Ok ":[]:Apply[]Push[Fn[-]]Push[Int[1]]Push[Int[6]]\n");
-        instr_test ~cf:false "2 9 11 + () / ()" (Ok ":[]:Apply[]Push[Fn[/]]Apply[]Push[Fn[+]]Push[Int[11]]Push[Int[9]]Push[Int[2]]\n");
+        instr_test ~cf:false "2 9 +" (Ok ":[0]:Push[Fn[+]]Push[Int[9]]Push[Int[2]]\n");
+        instr_test ~cf:false "2 9 + ()" (Ok ":[0]:Apply[]Push[Fn[+]]Push[Int[9]]Push[Int[2]]\n");
+        instr_test ~cf:false "14 13 * ()" (Ok ":[0]:Apply[]Push[Fn[*]]Push[Int[13]]Push[Int[14]]\n");
+        instr_test ~cf:false "2 6 / ()" (Ok ":[0]:Apply[]Push[Fn[/]]Push[Int[6]]Push[Int[2]]\n");
+        instr_test ~cf:false "6 1 - ()" (Ok ":[0]:Apply[]Push[Fn[-]]Push[Int[1]]Push[Int[6]]\n");
+        instr_test ~cf:false "2 9 11 + () / ()" (Ok ":[0]:Apply[]Push[Fn[/]]Apply[]Push[Fn[+]]Push[Int[11]]Push[Int[9]]Push[Int[2]]\n");
 
         (* Functions *)
         instr_test "a -> { a }" (Ok ":[]:Push[Fn[anon1]]\nanon1:[a]:Push[Arg[a]]\n");

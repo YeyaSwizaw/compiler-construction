@@ -22,7 +22,6 @@ let generate_code opt_flags size_flags instrs =
         let generate_expr = function
             | Instr.PushConst (Instr.Int i) -> Queue.push (`Int i) push_queue
             | Instr.PushArg n -> Queue.push (`Arg n) push_queue
-            | Instr.PushSelf -> push_fn code.Instr.args curr_name
             | Instr.PushFn (Instr.BinOp Instr.Add) -> push_fn 2 "add"
             | Instr.PushFn (Instr.BinOp Instr.Sub) -> push_fn 2 "sub"
             | Instr.PushFn (Instr.BinOp Instr.Mul) -> push_fn 2 "mul"
