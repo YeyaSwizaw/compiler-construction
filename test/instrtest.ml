@@ -91,13 +91,12 @@ let run () =
         (* Functions *)
         instr_test "a -> { a }" (Ok ":[0]:Push[Fn[_anon_1]]\n_anon_1:[1]:Push[Arg[2]]\n");
         instr_test "fun: a -> { a }\nfun" (Ok ":[0]:Push[Fn[_fun]]\n_fun:[1]:Push[Arg[2]]\n");
-        instr_test "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[0]:Push[Int[8]]\n_fun:[1]:Apply[]Push[Fn[+]]Push[Int[3]]Push[Arg[2]]\n");
-        instr_test "fun: a -> b -> c -> {}\nfun ()" (Ok ":[0]:\n_fun:[3]:\n");
+        instr_test "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[0]:Push[Int[8]]\n");
+        instr_test "fun: a -> b -> c -> {}\nfun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]\n_fun:[3]:\n");
 
         instr_test "a -> { a }" (Ok ":[0]:Push[Fn[_anon_1]]\n_anon_1:[1]:Push[Arg[2]]\n");
         instr_test "fun: a -> { a }\nfun" (Ok ":[0]:Push[Fn[_fun]]\n_fun:[1]:Push[Arg[2]]\n");
-        instr_test ~cf:false "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]Push[Int[5]]\n_fun:[1]:Apply[]Push[Fn[+]]Apply[]Push[Fn[+]]Push[Int[2]]Push[Int[1]]Push[Arg[2]]\n");
-        instr_test ~cf:false "fun: a -> { a fun () }\n1 fun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]Push[Int[1]]\n_fun:[1]:Apply[]Push[Fn[_fun]]Push[Arg[2]]\n");
+        instr_test ~cf:false "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[0]:Apply[]Push[Fn[+]]Apply[]Push[Fn[+]]Push[Int[2]]Push[Int[1]]Push[Int[5]]\n");
         instr_test ~cf:false "fun: a -> b -> c -> {}\nfun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]\n_fun:[3]:\n");
 
         instr_test "a" (Err [(1, 0), (1, 0)]);

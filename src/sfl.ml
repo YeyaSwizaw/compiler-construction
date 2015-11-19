@@ -64,14 +64,16 @@ let () =
         +> flag "--storage-size" (optional_with_default 4096 int) ~doc:"size The size of the program storage"
         +> flag "--no-constant-folding" no_arg ~doc:" Disable constant folding optimisations"
         +> flag "--no-storage-cleaning" no_arg ~doc:" Disable storage cleaning optimisation (will fix some crashes, but use more storage)"
+        +> flag "--no-function-execution" no_arg ~doc: " Disable execution of functions with constant arguments. Keeping enabled may cause horiffic compile times, but will execute as much as possible"
     )
-    (fun filename emit_asm emit_fns emit_ast output stack_size storage_size disable_cf disable_sc ->
+    (fun filename emit_asm emit_fns emit_ast output stack_size storage_size disable_cf disable_sc disable_fe ->
         run filename emit_asm emit_fns emit_ast output {
             stack=stack_size;
             storage=storage_size
         } { 
             cf=(not disable_cf);
-            sc=(not disable_sc)
+            sc=(not disable_sc);
+            fe=(not disable_fe);
         }
     )
   |> Command.run

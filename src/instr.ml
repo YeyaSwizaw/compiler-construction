@@ -246,7 +246,7 @@ let generate_instructions opt_flags code =
             (* Apply function *)
             | Syntax.Apply Syntax.Full -> begin match instrs with
                 | (PushConst (Fn (Named (n, a)))) :: rest -> begin
-                    if opt_flags.Flag.cf then
+                    if opt_flags.Flag.fe then
                         let (fn_env, fn_code) = Fns.find n !fn_envs in
                         begin match pop_args a rest with
                             | Some (args, ls) -> begin
@@ -263,7 +263,7 @@ let generate_instructions opt_flags code =
                             | None -> generate_function (Apply Full :: (PushConst (Fn (Named (n, a)))) :: rest) env tl
                         end
                     else
-                        generate_function (Apply Full :: instrs) env tl
+                        generate_function (Apply Full :: (PushConst (Fn (Named (n, a)))) :: rest) env tl
                 end
 
                 | other -> if opt_flags.Flag.cf then
@@ -286,7 +286,7 @@ let generate_instructions opt_flags code =
 
     let fn = generate_function [] (make_env code.Syntax.env) code.Syntax.code in
 
-    let rec is_dead_from name fn =
+    let rec is_dead_from ?(seen=[]) name fn =
         let called_fs = List.fold_left (fun acc item -> match item with 
             | PushConst (Fn (Named (n, _))) -> (n :: acc)
             | _ -> acc
@@ -295,8 +295,10 @@ let generate_instructions opt_flags code =
         List.fold_left (fun acc item -> 
             acc || if item = name then 
                 true 
-            else 
-                (is_dead_from name (Fns.find item !result).code)
+            else if not (List.mem item seen) then
+                (is_dead_from ~seen:(called_fs @ seen) name (Fns.find item !result).code)
+            else
+                false
         ) false called_fs
     in
 
