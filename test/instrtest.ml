@@ -36,6 +36,7 @@ let instr_test ?(cf=true) code output =
         begin match Compiler.run ~instr_callback:(fun prog -> result := Ok (string_of_fns prog); false) ~opt_flags:opt_flags test_file with
             | Ok(()) -> ()
             | Err(errs) -> result := Err (map (fun err -> match err with
+                | NotImplemented p
                 | UndefinedName (_, p)
                 | RedefinedName (_, _, p)
                 | UnterminatedLBrace p
@@ -88,17 +89,17 @@ let run () =
         instr_test ~cf:false "2 9 11 + () / ()" (Ok ":[0]:Apply[]Push[Fn[/]]Apply[]Push[Fn[+]]Push[Int[11]]Push[Int[9]]Push[Int[2]]\n");
 
         (* Functions *)
-        instr_test "a -> { a }" (Ok ":[]:Push[Fn[anon1]]\nanon1:[a]:Push[Arg[a]]\n");
-        instr_test "fun: a -> { a }\nfun" (Ok ":[]:Push[Fn[fun1]]\nfun1:[a]:Push[Arg[a]]\n");
-        instr_test "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[]:Apply[]Push[Fn[fun1]]Push[Int[5]]\nfun1:[a]:Apply[]Push[Fn[+]]Push[Int[3]]Push[Arg[a]]\n");
-        instr_test "fun: a -> { a fun () }\n1 fun ()" (Ok ":[]:Apply[]Push[Fn[fun1]]Push[Int[1]]\nfun1:[a]:Apply[]Push[Self]Push[Arg[a]]\n");
-        instr_test "fun: a -> b -> c -> {}\nfun ()" (Ok ":[]:Apply[]Push[Fn[fun1]]\nfun1:[a, b, c]:\n");
+        instr_test "a -> { a }" (Ok ":[0]:Push[Fn[_anon_1]]\n_anon_1:[1]:Push[Arg[2]]\n");
+        instr_test "fun: a -> { a }\nfun" (Ok ":[0]:Push[Fn[_fun]]\n_fun:[1]:Push[Arg[2]]\n");
+        instr_test "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]Push[Int[5]]\n_fun:[1]:Apply[]Push[Fn[+]]Push[Int[3]]Push[Arg[2]]\n");
+        instr_test "fun: a -> { a fun () }\n1 fun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]Push[Int[1]]\n_fun:[1]:Apply[]Push[Fn[_fun]]Push[Arg[2]]\n");
+        instr_test "fun: a -> b -> c -> {}\nfun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]\n_fun:[3]:\n");
 
-        instr_test ~cf:false "a -> { a }" (Ok ":[]:Push[Fn[anon1]]\nanon1:[a]:Push[Arg[a]]\n");
-        instr_test ~cf:false "fun: a -> { a }\nfun" (Ok ":[]:Push[Fn[fun1]]\nfun1:[a]:Push[Arg[a]]\n");
-        instr_test ~cf:false "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[]:Apply[]Push[Fn[fun1]]Push[Int[5]]\nfun1:[a]:Apply[]Push[Fn[+]]Apply[]Push[Fn[+]]Push[Int[2]]Push[Int[1]]Push[Arg[a]]\n");
-        instr_test ~cf:false "fun: a -> { a fun () }\n1 fun ()" (Ok ":[]:Apply[]Push[Fn[fun1]]Push[Int[1]]\nfun1:[a]:Apply[]Push[Self]Push[Arg[a]]\n");
-        instr_test ~cf:false "fun: a -> b -> c -> {}\nfun ()" (Ok ":[]:Apply[]Push[Fn[fun1]]\nfun1:[a, b, c]:\n");
+        instr_test "a -> { a }" (Ok ":[0]:Push[Fn[_anon_1]]\n_anon_1:[1]:Push[Arg[2]]\n");
+        instr_test "fun: a -> { a }\nfun" (Ok ":[0]:Push[Fn[_fun]]\n_fun:[1]:Push[Arg[2]]\n");
+        instr_test ~cf:false "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]Push[Int[5]]\n_fun:[1]:Apply[]Push[Fn[+]]Apply[]Push[Fn[+]]Push[Int[2]]Push[Int[1]]Push[Arg[2]]\n");
+        instr_test ~cf:false "fun: a -> { a fun () }\n1 fun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]Push[Int[1]]\n_fun:[1]:Apply[]Push[Fn[_fun]]Push[Arg[2]]\n");
+        instr_test ~cf:false "fun: a -> b -> c -> {}\nfun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]\n_fun:[3]:\n");
 
         instr_test "a" (Err [(1, 0), (1, 0)]);
         instr_test "a -> { b }" (Err [(1, 7), (1, 7)]);

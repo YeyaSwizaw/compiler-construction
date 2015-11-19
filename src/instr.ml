@@ -102,6 +102,7 @@ let generate_instructions opt_flags code =
 
     let used_fns = ref Fns.empty in
     let result = ref Fns.empty in
+    let errors = ref [] in
 
     let rec idx item = function
         | [] -> None 
@@ -111,7 +112,23 @@ let generate_instructions opt_flags code =
         end
     in
 
-    let rec env_lookup ?(fn_name="") name env = 
+    let apply_binop rest = function
+        | (Add, Int i1, Int i2) -> (PushConst (Int (i1 + i2))) :: rest
+        | (Mul, Int i1, Int i2) -> (PushConst (Int (i1 * i2))) :: rest
+        | (Sub, Int i1, Int i2) -> (PushConst (Int (i1 - i2))) :: rest
+        | (Div, Int i1, Int i2) -> (PushConst (Int (i1 / i2))) :: rest
+        | (Eq, Int i1, Int i2) -> (PushConst (Int (if i1 = i2 then 1 else 0))) :: rest
+        | (Gt, Int i1, Int i2) -> (PushConst (Int (if i1 > i2 then 1 else 0))) :: rest
+        | (Lt, Int i1, Int i2) -> (PushConst (Int (if i1 < i2 then 1 else 0))) :: rest
+        | (o, a1, a2) -> (Apply Full) :: (PushFn (BinOp o)) :: (PushConst a1) :: (PushConst a2) :: rest
+    in
+
+    let attempt_fold = function
+        | (PushFn (BinOp op)) :: (PushConst a1) :: (PushConst a2) :: rest -> apply_binop rest (op, a1, a2)
+        | xs -> (Apply Full) :: xs
+    in
+
+    let rec env_lookup ?(fn_name="") location name env = 
         try
             (* Check for function *)
             let (fn_name, n) = Fns.find name !used_fns in
@@ -124,7 +141,7 @@ let generate_instructions opt_flags code =
                     | `Int (n, i) :: tl -> if name = n then Some (PushConst (Int i)) else list_lookup tl
                     | `Char (n, c) :: tl -> if name = n then Some (PushConst (Char c)) else list_lookup tl
                     | `String (n, s) :: tl -> if name = n then Some (PushConst (String s)) else list_lookup tl
-                    | `Ident (n, i) :: tl -> if name = n then Some (env_lookup i env) else list_lookup tl
+                    | `Ident (n, i) :: tl -> if name = n then Some (env_lookup location i env) else list_lookup tl
                     | `Fn (n, a, p) :: tl -> if name = n then begin
                         let fn_name = fn_name ^ "_" ^ name in
                         used_fns := Fns.add name (fn_name, List.length a) !used_fns;
@@ -144,10 +161,18 @@ let generate_instructions opt_flags code =
                             | Some n -> PushArg ((List.length env.args) - n + 1)
                             | None -> 
                                 (* Lookup in parent *)
-                                let (Some parent) = env.parent in 
-                                env_lookup 
-                                    ~fn_name:(env.name ^ "_" ^ fn_name)
-                                    name parent
+                                begin match env.parent with
+                                    | Some parent ->
+                                        env_lookup 
+                                            ~fn_name:(env.name ^ "_" ^ fn_name)
+                                            location
+                                            name 
+                                            parent
+
+                                    | None ->
+                                        errors := (Errors.undefined_name name location) :: !errors;
+                                        PushArg (-1)
+                                end
                     end
             end
 
@@ -170,7 +195,7 @@ let generate_instructions opt_flags code =
             end
 
             (* Push named value *)
-            | Syntax.Value (Syntax.Ident i) -> generate_function ((env_lookup i env) :: instrs) env tl 
+            | Syntax.Value (Syntax.Ident i) -> generate_function ((env_lookup exp_block.Syntax.location i env) :: instrs) env tl 
 
             (* Push operators *)
             | Syntax.Op (Syntax.Plus) -> generate_function (PushFn (BinOp Add) :: instrs) env tl
@@ -183,9 +208,22 @@ let generate_instructions opt_flags code =
             | Syntax.Op (Syntax.IfThenElse) -> generate_function (PushFn (TriOp Ite) :: instrs) env tl
 
             (* Apply function *)
-            | Syntax.Apply Syntax.Full -> generate_function (Apply Full :: instrs) env tl
+            | Syntax.Apply Syntax.Full -> 
+                if opt_flags.Flag.cf then
+                    generate_function (attempt_fold instrs) env tl
+                else
+                    generate_function (Apply Full :: instrs) env tl
+
+            | _ -> begin
+                errors := (Errors.not_implemented exp_block.Syntax.location) :: !errors;
+                generate_function instrs env tl
+            end
         end
     in
 
     let fn = generate_function [] (make_env code.Syntax.env) code.Syntax.code in
-    Errors.Ok (Fns.add "" { code=fn; args=0; } !result)
+
+    if !errors = [] then
+        Errors.Ok (Fns.add "" { code=fn; args=0; } !result)
+    else
+        Errors.Err !errors
