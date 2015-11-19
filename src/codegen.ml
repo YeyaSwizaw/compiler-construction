@@ -22,15 +22,15 @@ let generate_code opt_flags size_flags instrs =
         let generate_expr = function
             | Instr.PushConst (Instr.Int i) -> Queue.push (`Int i) push_queue
             | Instr.PushArg n -> Queue.push (`Arg n) push_queue
-            | Instr.PushFn (Instr.BinOp Instr.Add) -> push_fn 2 "add"
-            | Instr.PushFn (Instr.BinOp Instr.Sub) -> push_fn 2 "sub"
-            | Instr.PushFn (Instr.BinOp Instr.Mul) -> push_fn 2 "mul"
-            | Instr.PushFn (Instr.BinOp Instr.Div) -> push_fn 2 "div"
-            | Instr.PushFn (Instr.BinOp Instr.Eq) -> push_fn 2 "eq_cmp"
-            | Instr.PushFn (Instr.BinOp Instr.Lt) -> push_fn 2 "lt_cmp"
-            | Instr.PushFn (Instr.BinOp Instr.Gt) -> push_fn 2 "gt_cmp"
-            | Instr.PushFn (Instr.TriOp Instr.Ite) -> push_fn 3 "ite"
-            | Instr.PushFn (Instr.Named (s, n)) -> push_fn n s
+            | Instr.PushConst (Instr.Fn (Instr.BinOp Instr.Add)) -> push_fn 2 "add"
+            | Instr.PushConst (Instr.Fn (Instr.BinOp Instr.Sub)) -> push_fn 2 "sub"
+            | Instr.PushConst (Instr.Fn (Instr.BinOp Instr.Mul)) -> push_fn 2 "mul"
+            | Instr.PushConst (Instr.Fn (Instr.BinOp Instr.Div)) -> push_fn 2 "div"
+            | Instr.PushConst (Instr.Fn (Instr.BinOp Instr.Eq)) -> push_fn 2 "eq_cmp"
+            | Instr.PushConst (Instr.Fn (Instr.BinOp Instr.Lt)) -> push_fn 2 "lt_cmp"
+            | Instr.PushConst (Instr.Fn (Instr.BinOp Instr.Gt)) -> push_fn 2 "gt_cmp"
+            | Instr.PushConst (Instr.Fn (Instr.TriOp Instr.Ite)) -> push_fn 3 "ite"
+            | Instr.PushConst (Instr.Fn (Instr.Named (s, n))) -> push_fn n s
 
             | other -> begin
                 if not (Queue.is_empty push_queue) then begin

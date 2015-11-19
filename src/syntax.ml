@@ -41,6 +41,7 @@ and expr =
     | Value of value_item
     | Op of op_item
     | Apply of apply_spec
+    | PopEnv
 
 and program_t = {
     env: (value_item chunk) Env.t;
@@ -83,6 +84,9 @@ let rec string_of_expr = function
         | Full -> "Apply[]"
         | Total -> "Apply[*]"
     end
+
+
+    | PopEnv -> "Pop[]" (* Shouldn't usually be seen *)
 
 and string_of_exprs ls = fold_left (fun acc expr -> acc ^ string_of_expr expr) "" ls
 
