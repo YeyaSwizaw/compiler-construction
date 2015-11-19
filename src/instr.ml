@@ -102,7 +102,6 @@ let generate_instructions opt_flags code =
     } 
     in
 
-    let used_fns = ref Fns.empty in
     let fn_envs = ref Fns.empty in
     let result = ref Fns.empty in
     let errors = ref [] in
@@ -163,7 +162,7 @@ let generate_instructions opt_flags code =
             | `Fn (n, a, p) :: tl -> if name = n then begin
                 let fn_name = (make_env_name env) ^ "_" ^ name in
                 try 
-                    let (_, fn_env) = Fns.find fn_name !fn_envs in
+                    let (_e, _) = Fns.find fn_name !fn_envs in
                     Some (PushConst (Fn (Named (fn_name, List.length a))))
                 with
                     Not_found -> begin
@@ -246,10 +245,11 @@ let generate_instructions opt_flags code =
 
             (* Apply function *)
             | Syntax.Apply Syntax.Full -> begin match instrs with
-                | (PushConst (Fn (Named (n, a)))) :: rest -> if opt_flags.Flag.cf then
+                | (PushConst (Fn (Named (n, a)))) :: rest -> begin
+                    if opt_flags.Flag.cf then
                         let (fn_env, fn_code) = Fns.find n !fn_envs in
                         begin match pop_args a rest with
-                            | Some (args, ls) -> 
+                            | Some (args, ls) -> begin
                                 generate_function 
                                     ls 
                                     { fn_env with 
@@ -258,11 +258,13 @@ let generate_instructions opt_flags code =
                                         parent=(Some env) 
                                     } 
                                     (fn_code @ { Syntax.location=Lexing.dummy_pos; Syntax.data=Syntax.PopEnv; } :: tl)
+                            end
 
                             | None -> generate_function (Apply Full :: (PushConst (Fn (Named (n, a)))) :: rest) env tl
                         end
                     else
                         generate_function (Apply Full :: instrs) env tl
+                end
 
                 | other -> if opt_flags.Flag.cf then
                         generate_function (attempt_fold other) env tl
@@ -284,7 +286,21 @@ let generate_instructions opt_flags code =
 
     let fn = generate_function [] (make_env code.Syntax.env) code.Syntax.code in
 
+    let rec is_dead_from name fn =
+        let called_fs = List.fold_left (fun acc item -> match item with 
+            | PushConst (Fn (Named (n, _))) -> (n :: acc)
+            | _ -> acc
+        ) [] fn in
+
+        List.fold_left (fun acc item -> 
+            acc || if item = name then 
+                true 
+            else 
+                (is_dead_from name (Fns.find item !result).code)
+        ) false called_fs
+    in
+
     if !errors = [] then
-        Errors.Ok (Fns.add "" { code=fn; args=0; } !result)
+        Errors.Ok (Fns.add "" { code=fn; args=0; } (Fns.filter (fun key f -> is_dead_from key fn) !result))
     else
         Errors.Err !errors
