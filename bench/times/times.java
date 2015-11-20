@@ -18,6 +18,6 @@ public class times {
     }
 
     public static void main(String[] args) {
-        System.out.printf("%d\n", times(100000, times::add_five, 0));
+        System.out.printf("%d\n", times(1000, times::add_five, 0));
     }
 }

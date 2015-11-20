@@ -11,5 +11,5 @@ fn times(n: u64, f: fn(i64) -> i64, x: i64) -> i64 {
 }
 
 fn main() {
-    println!("{}", times(100000, add_five, 0));
+    println!("{}", times(1000, add_five, 0));
 }

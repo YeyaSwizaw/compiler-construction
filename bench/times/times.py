@@ -8,5 +8,5 @@ def times(n, f, x):
 
     return val
 
-print(times(100000, add_five, 0))
+print(times(1000, add_five, 0))
         

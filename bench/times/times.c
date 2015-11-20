@@ -14,5 +14,5 @@ long times(unsigned long n, long(*f)(long), long x) {
 }
 
 int main() {
-    printf("%d\n", times(100000, add_five, 0));
+    printf("%d\n", times(1000, add_five, 0));
 }

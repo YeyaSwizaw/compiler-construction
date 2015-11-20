@@ -5,7 +5,7 @@ open Instr
 open Errors
 open Lexing
 
-let instr_test ?(cf=true) code output =
+let instr_test ?(fe=true) ?(cf=true) code output =
     let fail_f res exp () = 
         "    Input: " ^ code 
         ^ "\n    Expected: " ^ (match exp with
@@ -31,6 +31,7 @@ let instr_test ?(cf=true) code output =
         let opt_flags = {
             Flag.default_opt_flags with
                 Flag.cf = cf;
+                Flag.fe = fe;
         } in
 
         begin match Compiler.run ~instr_callback:(fun prog -> result := Ok (string_of_fns prog); false) ~opt_flags:opt_flags test_file with
@@ -98,6 +99,16 @@ let run () =
         instr_test "fun: a -> { a }\nfun" (Ok ":[0]:Push[Fn[_fun]]\n_fun:[1]:Push[Arg[2]]\n");
         instr_test ~cf:false "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[0]:Apply[]Push[Fn[+]]Apply[]Push[Fn[+]]Push[Int[2]]Push[Int[1]]Push[Int[5]]\n");
         instr_test ~cf:false "fun: a -> b -> c -> {}\nfun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]\n_fun:[3]:\n");
+
+        instr_test ~fe:false "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]Push[Int[5]]\n_fun:[1]:Apply[]Push[Fn[+]]Push[Int[3]]Push[Arg[2]]\n");
+        instr_test ~fe:false ~cf:false "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]Push[Int[5]]\n_fun:[1]:Apply[]Push[Fn[+]]Apply[]Push[Fn[+]]Push[Int[2]]Push[Int[1]]Push[Arg[2]]\n");
+        instr_test ~fe:false "fun: a -> { a a + () fun () } 5 fun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]Push[Int[5]]\n_fun:[1]:Apply[]Push[Fn[_fun]]Apply[]Push[Fn[+]]Push[Arg[2]]Push[Arg[2]]\n");
+        instr_test ~fe:false ~cf:false "fun: a -> { a a + () fun () } 5 fun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]Push[Int[5]]\n_fun:[1]:Apply[]Push[Fn[_fun]]Apply[]Push[Fn[+]]Push[Arg[2]]Push[Arg[2]]\n");
+
+        instr_test "a: x -> { x x + () }\nb: x -> y -> { y a () }\n5 1 b ()" (Ok ":[0]:Push[Int[10]]\n");
+        instr_test ~cf:false "a: x -> { x x + () }\nb: x -> y -> { y a () }\n5 1 b ()" (Ok ":[0]:Apply[]Push[Fn[+]]Push[Int[5]]Push[Int[5]]\n");
+        instr_test ~fe:false "a: x -> { x x + () }\nb: x -> y -> { y a () }\n5 1 b ()" (Ok ":[0]:Apply[]Push[Fn[_b]]Push[Int[1]]Push[Int[5]]\n_a:[1]:Apply[]Push[Fn[+]]Push[Arg[2]]Push[Arg[2]]\n_b:[2]:Apply[]Push[Fn[_a]]Push[Arg[2]]\n");
+        instr_test ~cf:false ~fe:false "a: x -> { x x + () }\nb: x -> y -> { y a () }\n5 1 b ()" (Ok ":[0]:Apply[]Push[Fn[_b]]Push[Int[1]]Push[Int[5]]\n_a:[1]:Apply[]Push[Fn[+]]Push[Arg[2]]Push[Arg[2]]\n_b:[2]:Apply[]Push[Fn[_a]]Push[Arg[2]]\n");
 
         instr_test "a" (Err [(1, 0), (1, 0)]);
         instr_test "a -> { b }" (Err [(1, 7), (1, 7)]);

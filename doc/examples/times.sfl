@@ -21,4 +21,4 @@ times: n -> f -> x -> {
     ? () ()
 }
 
-0 add_five 100000 times ()
+0 add_five 1000 times ()

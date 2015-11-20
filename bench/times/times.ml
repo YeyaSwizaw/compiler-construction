@@ -7,4 +7,4 @@ let rec times n f x =
         times (n - 1) f (f x)
 
 let () =
-    print_endline (string_of_int (times 100000 add_five 0))
+    print_endline (string_of_int (times 1000 add_five 0))
