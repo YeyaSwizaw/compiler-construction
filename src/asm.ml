@@ -6,7 +6,7 @@ let unique_id = let prev = ref (-1) in (fun () -> prev := !prev + 1; !prev)
 let data_segment size_flags = 
 "    .data
 int_format_str:
-    .asciz \\\"%d\\n\\\"
+    .asciz \\\"%d\\\"
     .align  8
 stack_size:
     .quad   " ^ (string_of_int size_flags.Flag.stack) ^ "
@@ -31,17 +31,6 @@ main:
     call    malloc
     movq    %rax, storage(%rip)
     movq    %rax, storage_pos(%rip)
-"
-
-let debug_end =
-"    movq    stack_pos(%rip), %rax
-    subq    \\$1, %rax
-    movq    %rax, stack_pos(%rip)
-    movq    stack(%rip), %rdx
-    movq    (%rdx, %rax, 8), %rsi
-    movq    \\$int_format_str, %rdi
-    movq    \\$0, %rax
-    call    printf
 "
 
 let main_end =
@@ -124,9 +113,34 @@ arg_loop_" ^ n ^ ":
 "
 
 let write_block = function
-    | `Value v ->
+    | `ConstChar v ->
 "    movq   \\$" ^ string_of_int v ^ ", %rdi
-    call     putchar
+    call   putchar
+"
+
+    | `ConstInt v ->
+"    movq   \\$" ^ string_of_int v ^ ", %rsi
+    movq    \\$int_format_str, %rdi
+    movq    \\$0, %rax
+    call    printf
+"
+
+    | `TopChar ->
+"    movq    stack_pos(%rip), %rax
+    subq    \\$1, %rax
+    movq    stack(%rip), %rdx
+    movq    (%rdx, %rax, 8), %rdi
+    call    putchar
+"
+
+    | `TopInt ->
+"    movq    stack_pos(%rip), %rax
+    subq    \\$1, %rax
+    movq    stack(%rip), %rdx
+    movq    (%rdx, %rax, 8), %rsi
+    movq    \\$int_format_str, %rdi
+    movq    \\$0, %rax
+    call    printf
 "
 
 let op_block op =

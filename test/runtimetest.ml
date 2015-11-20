@@ -58,46 +58,48 @@ let runtime_test ?(fe=true) ?(cf=true) code output =
 
 let run () =
     let tests = [
-        runtime_test "1\n" "1\n";
-        runtime_test "5 7" "7\n";
-        runtime_test "number\nnumber: 13" "13\n";
-        runtime_test "'f'" "102\n";
-        runtime_test "6 3 + ()" "9\n";
-        runtime_test "2 11 * ()" "22\n";
-        runtime_test "15 5 - ()" "-10\n";
-        runtime_test "2 8 / ()" "4\n";
-        runtime_test "2 3 1 ? ()" "3\n";
-        runtime_test "2 3 0 ? ()" "2\n";
-        runtime_test "5 2 < ()" "1\n";
-        runtime_test "1 7 < ()" "0\n";
-        runtime_test "5 2 > ()" "0\n";
-        runtime_test "1 7 > ()" "1\n";
-        runtime_test "5 5 = ()" "1\n";
-        runtime_test "5 2 = ()" "0\n";
-        runtime_test "3 6 = ()" "0\n";
-        runtime_test "17 4 add ()\nadd: a -> b -> { a b + () }" "21\n";
+        runtime_test "1 ," "1";
+        runtime_test "5 7 ," "7";
+        runtime_test "number ,\nnumber: 13" "13";
+        runtime_test "'f' ," "102";
+        runtime_test "'f' ." "f";
+        runtime_test "6 3 + () ," "9";
+        runtime_test "2 11 * () ," "22";
+        runtime_test "15 5 - () ," "-10";
+        runtime_test "2 8 / () ," "4";
+        runtime_test "2 3 1 ? () ," "3";
+        runtime_test "2 3 0 ? () ," "2";
+        runtime_test "5 2 < () ," "1";
+        runtime_test "1 7 < () ," "0";
+        runtime_test "5 2 > () ," "0";
+        runtime_test "1 7 > () ," "1";
+        runtime_test "5 5 = () ," "1";
+        runtime_test "5 2 = () ," "0";
+        runtime_test "3 6 = () ," "0";
+        runtime_test "17 4 add () ,\nadd: a -> b -> { a b + () }" "21";
 
-        runtime_test ~cf:false "1" "1\n";
-        runtime_test ~cf:false "5 7" "7\n";
-        runtime_test ~cf:false "number\nnumber: 13" "13\n";
-        runtime_test ~cf:false "'f'" "102\n";
-        runtime_test ~cf:false "6 3 + ()" "9\n";
-        runtime_test ~cf:false "2 11 * ()" "22\n";
-        runtime_test ~cf:false "15 5 - ()" "-10\n";
-        runtime_test ~cf:false "2 8 / ()" "4\n";
-        runtime_test ~cf:false "2 3 1 ? ()" "3\n";
-        runtime_test ~cf:false "2 3 0 ? ()" "2\n";
-        runtime_test ~cf:false "5 2 < ()" "1\n";
-        runtime_test ~cf:false "1 7 < ()" "0\n";
-        runtime_test ~cf:false "5 2 > ()" "0\n";
-        runtime_test ~cf:false "1 7 > ()" "1\n";
-        runtime_test ~cf:false "5 5 = ()" "1\n";
-        runtime_test ~cf:false "5 2 = ()" "0\n";
-        runtime_test ~cf:false "3 6 = ()" "0\n";
-        runtime_test ~cf:false "17 4 add ()\nadd: a -> b -> { a b + () }" "21\n";
+        runtime_test ~cf:false "1 ," "1";
+        runtime_test ~cf:false "5 7 ," "7";
+        runtime_test ~cf:false "number ,\nnumber: 13" "13";
+        runtime_test ~cf:false "'f' ," "102";
+        runtime_test ~cf:false "'f' ." "f";
+        runtime_test ~cf:false "6 3 + () ," "9";
+        runtime_test ~cf:false "2 11 * () ," "22";
+        runtime_test ~cf:false "15 5 - () ," "-10";
+        runtime_test ~cf:false "2 8 / () ," "4";
+        runtime_test ~cf:false "2 3 1 ? () ," "3";
+        runtime_test ~cf:false "2 3 0 ? () ," "2";
+        runtime_test ~cf:false "5 2 < () ," "1";
+        runtime_test ~cf:false "1 7 < () ," "0";
+        runtime_test ~cf:false "5 2 > () ," "0";
+        runtime_test ~cf:false "1 7 > () ," "1";
+        runtime_test ~cf:false "5 5 = () ," "1";
+        runtime_test ~cf:false "5 2 = () ," "0";
+        runtime_test ~cf:false "3 6 = () ," "0";
+        runtime_test ~cf:false "17 4 add () ,\nadd: a -> b -> { a b + () }" "21";
 
-        runtime_test ~fe:false "17 4 add ()\nadd: a -> b -> { a b + () }" "21\n";
-        runtime_test ~fe:false ~cf:false "17 4 add ()\nadd: a -> b -> { a b + () }" "21\n";
+        runtime_test ~fe:false "17 4 add () ,\nadd: a -> b -> { a b + () }" "21";
+        runtime_test ~fe:false ~cf:false "17 4 add (),\nadd: a -> b -> { a b + () }" "21";
     ] in
 
     check_tests "Runtime " 1 tests;

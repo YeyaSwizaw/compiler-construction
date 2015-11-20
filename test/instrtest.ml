@@ -113,10 +113,10 @@ let run () =
         instr_test ~cf:false ~fe:false "a: x -> { x x + () }\nb: x -> y -> { y a () }\n5 1 b ()" (Ok ":[0]:Apply[]Push[Fn[_b]]Push[Int[1]]Push[Int[5]]\n_a:[1]:Apply[]Push[Fn[+]]Push[Arg[2]]Push[Arg[2]]\n_b:[2]:Apply[]Push[Fn[_a]]Push[Arg[2]]\n");
 
         (* Write *)
-        instr_test "5 ." (Ok ":[0]:Push[Int[5]]Write[5]\n");
-        instr_test "line .\nline: 10" (Ok ":[0]:Push[Int[10]]Write[10]\n");
-        instr_test "2 4 + () ." (Ok ":[0]:Push[Int[6]]Write[6]\n");
-        instr_test ~cf:false "2 4 + () ." (Ok ":[0]:Write[Char]Apply[]Push[Fn[+]]Push[Int[4]]Push[Int[2]]\n");
+        instr_test "5 ." (Ok ":[0]:Push[Int[5]]Write[Char[5]]\n");
+        instr_test "line .\nline: 10" (Ok ":[0]:Push[Int[10]]Write[Char[10]]\n");
+        instr_test "2 4 + () ." (Ok ":[0]:Push[Int[6]]Write[Char[6]]\n");
+        instr_test ~cf:false "2 4 + () ." (Ok ":[0]:Write[Char[]]Apply[]Push[Fn[+]]Push[Int[4]]Push[Int[2]]\n");
 
         instr_test "a" (Err [(1, 0), (1, 0)]);
         instr_test "a -> { b }" (Err [(1, 7), (1, 7)]);

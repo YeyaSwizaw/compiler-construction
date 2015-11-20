@@ -36,6 +36,7 @@ rule read =
         | '}' { RBRACE }
         | ':' { COLON }
         | '.' { DOT }
+        | ',' { COMMA }
         | '"' { read_string (prev_pos lexbuf) (Buffer.create 17) lexbuf }
         | ''' { read_character (prev_pos lexbuf) lexbuf }
         | "->" { ARROW }

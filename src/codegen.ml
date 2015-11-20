@@ -41,7 +41,10 @@ let generate_code opt_flags size_flags instrs =
                 begin match other with
                     | Instr.Apply Instr.Full -> Buffer.add_string asm (Asm.apply_block opt_flags ())
 
-                    | Instr.Write (Instr.Value v) -> Buffer.add_string asm (Asm.write_block (`Value v))
+                    | Instr.Write (Instr.Const (v, Instr.AsInt)) -> Buffer.add_string asm (Asm.write_block (`ConstInt v))
+                    | Instr.Write (Instr.Const (v, Instr.AsChar)) -> Buffer.add_string asm (Asm.write_block (`ConstChar v))
+                    | Instr.Write (Instr.Top Instr.AsInt) -> Buffer.add_string asm (Asm.write_block (`TopInt))
+                    | Instr.Write (Instr.Top Instr.AsInt) -> Buffer.add_string asm (Asm.write_block (`TopChar))
 
                     | _ -> () (* TODO *)
                 end;
@@ -60,7 +63,6 @@ let generate_code opt_flags size_flags instrs =
         if name = "" then begin 
             Buffer.add_string asm Asm.main_begin;
             generate_code name code;
-            Buffer.add_string asm Asm.debug_end;
             Buffer.add_string asm Asm.main_end;
         end else begin
             Buffer.add_string asm (Asm.function_begin name);

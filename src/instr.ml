@@ -19,9 +19,13 @@ type fn_t =
     | TriOp of triop_t
     | Named of string * int
 
-type write_t =
+type write_method_t =
+    | AsInt
     | AsChar
-    | Value of int
+
+type write_t =
+    | Top of write_method_t
+    | Const of int * write_method_t
 
 type apply_t =
     | Full
@@ -74,8 +78,10 @@ let string_of_instr = function
 
     | Apply Full -> "Apply[]"
 
-    | Write AsChar -> "Write[Char]"
-    | Write (Value i) -> "Write[" ^ string_of_int i ^ "]"
+    | Write (Top AsChar) -> "Write[Char[]]"
+    | Write (Top AsInt) -> "Write[Int[]]"
+    | Write (Const (i, AsChar)) -> "Write[Char[" ^ string_of_int i ^ "]]"
+    | Write (Const (i, AsInt)) -> "Write[[" ^ string_of_int i ^ "]]"
 
 let rec string_of_args = function
     | [] -> ""
@@ -133,7 +139,7 @@ let generate_instructions opt_flags code =
             | None -> None
         end
 
-        | ((Write (Value _)) as w) :: v :: rest -> begin match pop_args n (v :: rest) with
+        | ((Write (Const _)) as w) :: v :: rest -> begin match pop_args n (v :: rest) with
             | Some (args, more) -> Some (args, w :: more)
             | None -> None
         end
@@ -297,8 +303,13 @@ let generate_instructions opt_flags code =
             end
 
             | Syntax.Write Syntax.AsChar -> begin match instrs with
-                | (PushConst (Int i)) as p :: rest -> generate_function (p :: Write (Value i) :: rest) env tl
-                | _ -> generate_function (Write AsChar :: instrs) env tl
+                | (PushConst (Int i)) as p :: rest -> generate_function (p :: Write (Const (i, AsChar)) :: rest) env tl
+                | _ -> generate_function (Write (Top AsChar) :: instrs) env tl
+            end
+
+            | Syntax.Write Syntax.AsInt -> begin match instrs with
+                | (PushConst (Int i)) as p :: rest -> generate_function (p :: Write (Const (i, AsInt)) :: rest) env tl
+                | _ -> generate_function (Write (Top AsInt) :: instrs) env tl
             end
 
             | _ -> begin

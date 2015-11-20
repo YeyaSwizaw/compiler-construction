@@ -17,6 +17,7 @@ let rec dechunk = function
 
 type write_item =
     | AsChar
+    | AsInt
 
 type apply_spec =
     | Partial of int
