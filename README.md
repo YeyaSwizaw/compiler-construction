@@ -60,19 +60,23 @@ Runnable examples can be found in ```doc/examples``` in the repository. Try chan
 how quickly things break!
 
 ## Optimisations
-Currently, the compiler does a basic constant folding optimisation, which executes basic mathematical expressions.
-Basically, code of the form:
+The compiler takes advantage of aggresive optimisation, and will fully execute all functions and operations with known values.
+This means any fully pure operation (such as the examples in ```doc/examples``` will compile down to the pushing of a single
+value onto the stack.
 
-```
-x y + ()
-```
+There are two main parts of this optimisation:
+* Constant folding, which executes simple expressions of the form ```x y + ()``` where ```x``` and ```y``` are constant values.
+  This optimisation can be disabled with the flag ```--no-constant-folding```
 
-where ```x``` and ```y``` are constant values will get optimised to be simply ```x + y```.
-
-This optimisation can be disabled with the flag ```--no-constant-folding```
+* Function execution, which inlines and executes user-defined functions with known arguments.
+  As an example, ```3 x -> { x } ()``` would compile to just ```3```.
+  With large recursive operations, this can take a very long time, so it is recommended to disable this in those cases.
+  This optimisation can be disabled with the flag ```--no-function-execution```
 
 ## Flags
 * ```--no-constant-folding``` disables the constant folding optimisation.
+
+* ```--no-function-execution``` disables the function inlining and executing optimisation.
 
 * ```--no-storage-cleaning``` disables the cleaning of storage memory when it is accessed. This will likely fix
 some bugs in compiled code, but will result in much more memory usage.
