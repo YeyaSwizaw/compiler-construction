@@ -41,6 +41,8 @@ let generate_code opt_flags size_flags instrs =
                 begin match other with
                     | Instr.Apply Instr.Full -> Buffer.add_string asm (Asm.apply_block opt_flags ())
 
+                    | Instr.Write (Instr.Value v) -> Buffer.add_string asm (Asm.write_block (`Value v))
+
                     | _ -> () (* TODO *)
                 end;
             end

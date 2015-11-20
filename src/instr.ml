@@ -19,18 +19,22 @@ type fn_t =
     | TriOp of triop_t
     | Named of string * int
 
+type write_t =
+    | AsChar
+    | Value of int
+
 type apply_t =
     | Full
 
 type value_t =
     | Int of int
-    | Char of char
     | String of string
     | Fn of fn_t
 
 type instruction =
     | PushConst of value_t
     | PushArg of int
+    | Write of write_t
     | Apply of apply_t
 
 module Fns = Map.Make(String)
@@ -52,7 +56,6 @@ type fn = {
 (* Stringifying *)
 let string_of_instr = function
     | PushConst (Int i) -> "Push[Int[" ^ (string_of_int i) ^"]]"
-    | PushConst (Char c) -> "Push[Char[" ^ (String.make 1 c) ^"]]"
     | PushConst (String s) -> "Push[Str[" ^ s ^"]]"
 
     | PushConst (Fn (BinOp Add)) -> "Push[Fn[+]]"
@@ -70,6 +73,9 @@ let string_of_instr = function
     | PushArg i -> "Push[Arg[" ^ (string_of_int i) ^ "]]"
 
     | Apply Full -> "Apply[]"
+
+    | Write AsChar -> "Write[Char]"
+    | Write (Value i) -> "Write[" ^ string_of_int i ^ "]"
 
 let rec string_of_args = function
     | [] -> ""
@@ -90,7 +96,7 @@ let generate_instructions opt_flags code =
     let make_env ?(parent=None) ?(name="") ?(args=[]) env = {
         env = Syntax.Env.fold (fun name value acc -> match value.Syntax.data with
             | Syntax.Int i -> `Int (name, i) :: acc
-            | Syntax.Char c -> `Char (name, c) :: acc
+            | Syntax.Char c -> `Int (name, int_of_char c) :: acc
             | Syntax.Ident i -> `Ident (name, i) :: acc
             | Syntax.String s -> `String (name, s) :: acc
             | Syntax.Function (a, p) -> `Fn (name, a, p) :: acc
@@ -126,6 +132,12 @@ let generate_instructions opt_flags code =
             | Some (args, more) -> Some (v :: args, more)
             | None -> None
         end
+
+        | ((Write (Value _)) as w) :: v :: rest -> begin match pop_args n (v :: rest) with
+            | Some (args, more) -> Some (args, w :: more)
+            | None -> None
+        end
+
         | other -> None
     in
 
@@ -146,8 +158,16 @@ let generate_instructions opt_flags code =
     in
 
     let attempt_fold = function
-        | (PushConst (Fn (BinOp op))) :: (PushConst a1) :: (PushConst a2) :: rest -> apply_binop rest (op, a1, a2)
-        | (PushConst (Fn (TriOp op))) :: (PushConst a1) :: (PushConst a2) :: (PushConst a3) :: rest -> apply_triop rest (op, a1, a2, a3)
+        | ((PushConst (Fn (BinOp op))) as f) :: rest -> begin match pop_args 2 rest with
+            | Some ([PushConst a1; PushConst a2], more) -> apply_binop more (op, a1, a2)
+            | None -> (Apply Full) :: f :: rest
+        end
+
+        | ((PushConst (Fn (TriOp op))) as f) :: rest -> begin match pop_args 3 rest with
+            | Some ([PushConst a1; PushConst a2; PushConst a3], more) -> apply_triop more (op, a1, a2, a3)
+            | None -> (Apply Full) :: f :: rest
+        end
+            
         | xs -> (Apply Full) :: xs
     in
 
@@ -156,7 +176,6 @@ let generate_instructions opt_flags code =
         let rec list_lookup = function
             | [] -> None
             | `Int (n, i) :: tl -> if name = n then Some (PushConst (Int i)) else list_lookup tl
-            | `Char (n, c) :: tl -> if name = n then Some (PushConst (Char c)) else list_lookup tl
             | `String (n, s) :: tl -> if name = n then Some (PushConst (String s)) else list_lookup tl
             | `Ident (n, i) :: tl -> if name = n then Some (env_lookup location i env) else list_lookup tl
             | `Fn (n, a, p) :: tl -> if name = n then begin
@@ -216,7 +235,7 @@ let generate_instructions opt_flags code =
         | exp_block :: tl -> begin match exp_block.Syntax.data with
             (* Push simple values *)
             | Syntax.Value (Syntax.Int i) -> generate_function (PushConst (Int i) :: instrs) env tl
-            | Syntax.Value (Syntax.Char c) -> generate_function (PushConst (Char c) :: instrs) env tl
+            | Syntax.Value (Syntax.Char c) -> generate_function (PushConst (Int (int_of_char c)) :: instrs) env tl
             | Syntax.Value (Syntax.String s) -> generate_function (PushConst (String s) :: instrs) env tl
 
             (* Push anon function *)
@@ -275,6 +294,11 @@ let generate_instructions opt_flags code =
             | Syntax.PopEnv -> begin match env.parent with
                 | Some parent -> generate_function instrs parent tl
                 | None -> generate_function instrs env tl
+            end
+
+            | Syntax.Write Syntax.AsChar -> begin match instrs with
+                | (PushConst (Int i)) as p :: rest -> generate_function (p :: Write (Value i) :: rest) env tl
+                | _ -> generate_function (Write AsChar :: instrs) env tl
             end
 
             | _ -> begin

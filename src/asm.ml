@@ -123,6 +123,12 @@ arg_loop_" ^ n ^ ":
     popq    %rsp
 "
 
+let write_block = function
+    | `Value v ->
+"    movq   \\$" ^ string_of_int v ^ ", %rdi
+    call     putchar
+"
+
 let op_block op =
     if op = "add" then
 (function_begin op) ^

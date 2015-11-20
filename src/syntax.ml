@@ -15,6 +15,9 @@ let rec dechunk = function
     | [] -> []
     | h :: t -> h.data :: dechunk t
 
+type write_item =
+    | AsChar
+
 type apply_spec =
     | Partial of int
     | Full
@@ -41,6 +44,7 @@ and expr =
     | Value of value_item
     | Op of op_item
     | Apply of apply_spec
+    | Write of write_item
     | PopEnv
 
 and program_t = {
@@ -85,6 +89,9 @@ let rec string_of_expr = function
         | Total -> "Apply[*]"
     end
 
+    | Write w -> begin match w with
+        | AsChar -> "Write[Char]"
+    end
 
     | PopEnv -> "Pop[]" (* Shouldn't usually be seen *)
 

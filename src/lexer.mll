@@ -35,6 +35,7 @@ rule read =
         | '{' { LBRACE (prev_pos lexbuf) }
         | '}' { RBRACE }
         | ':' { COLON }
+        | '.' { DOT }
         | '"' { read_string (prev_pos lexbuf) (Buffer.create 17) lexbuf }
         | ''' { read_character (prev_pos lexbuf) lexbuf }
         | "->" { ARROW }
@@ -69,6 +70,7 @@ and read_string start buf =
 
 and read_character start =
     parse
+        | "\\n" { next_line lexbuf; end_character start '\n' lexbuf }
         | line { next_line lexbuf; end_character start '\n' lexbuf }
         | eof { UNTERMINATED_CHAR start }
         | _ { end_character start (Lexing.lexeme lexbuf).[0] lexbuf }

@@ -18,6 +18,7 @@ open Syntax.Env
 %token TOTAL_CALLSPEC
 %token RBRACE
 %token COLON
+%token DOT
 %token ARROW
 %token SUB
 %token DIVIDE
@@ -75,6 +76,8 @@ expr:
 
     | o = op { o }
     | c = callspec { c }
+
+    | DOT { Errors.Ok ({location=$startpos; data=(Syntax.Write Syntax.AsChar)}) }
 
     | error { Errors.Err([Errors.expected_expression $startpos $endpos]) }
 

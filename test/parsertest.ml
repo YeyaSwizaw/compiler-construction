@@ -58,6 +58,7 @@ let run () =
         parser_test "5" (Ok "Int[5]");
         parser_test "1355" (Ok "Int[1355]");
         parser_test "'c'" (Ok "Char[c]");
+        parser_test "'\\n'" (Ok "Char[\n]");
         parser_test "e" (Ok "Id[e]");
         parser_test "apple" (Ok "Id[apple]");
         parser_test "a54fd32le" (Ok "Id[a54fd32le]");
@@ -77,6 +78,8 @@ let run () =
         parser_test "(*)" (Ok "Apply[*]");
         parser_test "(8)" (Ok "Apply[8]");
         parser_test "(815)" (Ok "Apply[815]");
+
+        parser_test "." (Ok "Write[Char]");
 
         parser_test "r: 17" (Ok "Name[r:Int[17]]");
         parser_test "corn: bacon" (Ok "Name[corn:Id[bacon]]");

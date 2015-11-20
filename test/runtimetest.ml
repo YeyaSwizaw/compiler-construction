@@ -18,7 +18,7 @@ let execute_and_get_stdout cmd =
     let _ = Unix.close_process (ic, oc) in
     Buffer.contents buf
 
-let runtime_test ?(cf=true) code output =
+let runtime_test ?(fe=true) ?(cf=true) code output =
     let fail_f res exp () =
         "    Input: " ^ code
         ^ "\n    Expected: " ^ exp
@@ -34,7 +34,8 @@ let runtime_test ?(cf=true) code output =
 
         let opt_flags = { 
             Flag.default_opt_flags with
-                Flag.cf=cf
+                Flag.cf=cf;
+                Flag.fe=fe;
         } in
 
         let test_file = In_channel.create test_filename in
@@ -60,6 +61,7 @@ let run () =
         runtime_test "1\n" "1\n";
         runtime_test "5 7" "7\n";
         runtime_test "number\nnumber: 13" "13\n";
+        runtime_test "'f'" "102\n";
         runtime_test "6 3 + ()" "9\n";
         runtime_test "2 11 * ()" "22\n";
         runtime_test "15 5 - ()" "-10\n";
@@ -78,6 +80,7 @@ let run () =
         runtime_test ~cf:false "1" "1\n";
         runtime_test ~cf:false "5 7" "7\n";
         runtime_test ~cf:false "number\nnumber: 13" "13\n";
+        runtime_test ~cf:false "'f'" "102\n";
         runtime_test ~cf:false "6 3 + ()" "9\n";
         runtime_test ~cf:false "2 11 * ()" "22\n";
         runtime_test ~cf:false "15 5 - ()" "-10\n";
@@ -92,6 +95,9 @@ let run () =
         runtime_test ~cf:false "5 2 = ()" "0\n";
         runtime_test ~cf:false "3 6 = ()" "0\n";
         runtime_test ~cf:false "17 4 add ()\nadd: a -> b -> { a b + () }" "21\n";
+
+        runtime_test ~fe:false "17 4 add ()\nadd: a -> b -> { a b + () }" "21\n";
+        runtime_test ~fe:false ~cf:false "17 4 add ()\nadd: a -> b -> { a b + () }" "21\n";
     ] in
 
     check_tests "Runtime " 1 tests;
