@@ -32,7 +32,6 @@ type apply_t =
 
 type value_t =
     | Int of int
-    | String of string
     | Fn of fn_t
 
 type instruction =
@@ -60,7 +59,6 @@ type fn = {
 (* Stringifying *)
 let string_of_instr = function
     | PushConst (Int i) -> "Push[Int[" ^ (string_of_int i) ^"]]"
-    | PushConst (String s) -> "Push[Str[" ^ s ^"]]"
 
     | PushConst (Fn (BinOp Add)) -> "Push[Fn[+]]"
     | PushConst (Fn (BinOp Sub)) -> "Push[Fn[-]]"
@@ -177,25 +175,31 @@ let generate_instructions opt_flags code =
         | xs -> (Apply Full) :: xs
     in
 
-    let rec env_lookup ?(base=true) location name env = 
+    let push_string instrs str =
+        let ls = ref [] in
+        String.iter (fun c -> ls := (PushConst (Int (int_of_char c)) :: !ls)) str;
+        (List.rev !ls) @ instrs
+    in
+
+    let rec env_lookup ?(base=true) instrs location name env = 
         (* Lookup in environment *)
         let rec list_lookup = function
             | [] -> None
-            | `Int (n, i) :: tl -> if name = n then Some (PushConst (Int i)) else list_lookup tl
-            | `String (n, s) :: tl -> if name = n then Some (PushConst (String s)) else list_lookup tl
-            | `Ident (n, i) :: tl -> if name = n then Some (env_lookup location i env) else list_lookup tl
+            | `Int (n, i) :: tl -> if name = n then Some (PushConst (Int i) :: instrs) else list_lookup tl
+            | `String (n, s) :: tl -> if name = n then Some (push_string instrs s) else list_lookup tl
+            | `Ident (n, i) :: tl -> if name = n then Some (env_lookup instrs location i env) else list_lookup tl
             | `Fn (n, a, p) :: tl -> if name = n then begin
                 let fn_name = (make_env_name env) ^ "_" ^ name in
                 try 
                     let (_e, _) = Fns.find fn_name !fn_envs in
-                    Some (PushConst (Fn (Named (fn_name, List.length a))))
+                    Some (PushConst (Fn (Named (fn_name, List.length a))) :: instrs)
                 with
                     Not_found -> begin
                         let fn_env = make_env ~parent:(Some env) ~name:name ~args:a p.Syntax.env in
                         fn_envs := Fns.add fn_name (fn_env, p.Syntax.code) !fn_envs;
                         let fn = generate_function [] fn_env p.Syntax.code in
                         result := Fns.add fn_name { code=fn; args=(List.length a); } !result;
-                        Some (PushConst (Fn (Named (fn_name, List.length a))))
+                        Some (PushConst (Fn (Named (fn_name, List.length a))) :: instrs)
                     end
             end else
                 list_lookup tl
@@ -207,13 +211,14 @@ let generate_instructions opt_flags code =
                 | Some parent ->
                     env_lookup 
                         ~base:false
+                        instrs
                         location
                         name 
                         parent
 
                 | None ->
                     errors := (Errors.undefined_name name location) :: !errors;
-                    PushArg (-1)
+                    PushArg (-1) :: instrs
             end
         in
 
@@ -227,8 +232,8 @@ let generate_instructions opt_flags code =
                             parent_lookup ()
                         end else begin
                             begin match env.arg_values with
-                                | Some l -> List.nth l n
-                                | None -> PushArg ((List.length env.args) - n + 1)
+                                | Some l -> (List.nth l n) :: instrs
+                                | None -> (PushArg ((List.length env.args) - n + 1)) :: instrs
                             end
                         end
                     end
@@ -242,7 +247,7 @@ let generate_instructions opt_flags code =
             (* Push simple values *)
             | Syntax.Value (Syntax.Int i) -> generate_function (PushConst (Int i) :: instrs) env tl
             | Syntax.Value (Syntax.Char c) -> generate_function (PushConst (Int (int_of_char c)) :: instrs) env tl
-            | Syntax.Value (Syntax.String s) -> generate_function (PushConst (String s) :: instrs) env tl
+            | Syntax.Value (Syntax.String s) -> generate_function (push_string instrs s) env tl
 
             (* Push anon function *)
             | Syntax.Value (Syntax.Function (fn_args, fn_prog)) -> begin
@@ -256,17 +261,17 @@ let generate_instructions opt_flags code =
             end
 
             (* Push named value *)
-            | Syntax.Value (Syntax.Ident i) -> generate_function ((env_lookup exp_block.Syntax.location i env) :: instrs) env tl 
+            | Syntax.Value (Syntax.Ident i) -> generate_function (env_lookup instrs exp_block.Syntax.location i env) env tl 
 
             (* Push operators *)
-            | Syntax.Op (Syntax.Plus) -> generate_function (PushConst (Fn (BinOp Add)) :: instrs) env tl
-            | Syntax.Op (Syntax.Minus) -> generate_function (PushConst (Fn (BinOp Sub)) :: instrs) env tl
-            | Syntax.Op (Syntax.Times) -> generate_function (PushConst (Fn (BinOp Mul)) :: instrs) env tl
-            | Syntax.Op (Syntax.Divide) -> generate_function (PushConst (Fn (BinOp Div)) :: instrs) env tl
-            | Syntax.Op (Syntax.Lt) -> generate_function (PushConst (Fn (BinOp Lt)) :: instrs) env tl
-            | Syntax.Op (Syntax.Gt) -> generate_function (PushConst (Fn (BinOp Gt)) :: instrs) env tl
-            | Syntax.Op (Syntax.Eq) -> generate_function (PushConst (Fn (BinOp Eq)) :: instrs) env tl
-            | Syntax.Op (Syntax.IfThenElse) -> generate_function (PushConst (Fn (TriOp Ite)) :: instrs) env tl
+            | Syntax.Op (Syntax.Plus) -> generate_function ((PushConst (Fn (BinOp Add))) :: instrs) env tl
+            | Syntax.Op (Syntax.Minus) -> generate_function ((PushConst (Fn (BinOp Sub))) :: instrs) env tl
+            | Syntax.Op (Syntax.Times) -> generate_function ((PushConst (Fn (BinOp Mul))) :: instrs) env tl
+            | Syntax.Op (Syntax.Divide) -> generate_function ((PushConst (Fn (BinOp Div))) :: instrs) env tl
+            | Syntax.Op (Syntax.Lt) -> generate_function ((PushConst (Fn (BinOp Lt))) :: instrs) env tl
+            | Syntax.Op (Syntax.Gt) -> generate_function ((PushConst (Fn (BinOp Gt))) :: instrs) env tl
+            | Syntax.Op (Syntax.Eq) -> generate_function ((PushConst (Fn (BinOp Eq))) :: instrs) env tl
+            | Syntax.Op (Syntax.IfThenElse) -> generate_function ((PushConst (Fn (TriOp Ite))) :: instrs) env tl
 
             (* Apply function *)
             | Syntax.Apply Syntax.Full -> begin match instrs with

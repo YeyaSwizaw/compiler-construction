@@ -1,0 +1,17 @@
+print: c -> {
+    c
+
+    c -> {
+        c .
+        c -> {} ()
+        print ()
+    }
+
+    c -> {}
+
+    c 0 = ()
+
+    ? () ()
+}
+
+0 "Hello World\n" print ()

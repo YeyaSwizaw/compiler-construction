@@ -59,8 +59,7 @@ let instr_test ?(fe=true) ?(cf=true) code output =
 let run () = 
     let tests = [
         instr_test "1" (Ok ":[0]:Push[Int[1]]\n");
-        instr_test "\"hello\"" (Ok ":[0]:Push[Str[hello]]\n");
-        instr_test "'x'" (Ok ":[0]:Push[Int[120]]\n");
+        instr_test "\"hello\"" (Ok ":[0]:Push[Int[104]]Push[Int[101]]Push[Int[108]]Push[Int[108]]Push[Int[111]]\n");
         instr_test "'\\n'" (Ok ":[0]:Push[Int[10]]\n");
 
         instr_test "+" (Ok ":[0]:Push[Fn[+]]\n");

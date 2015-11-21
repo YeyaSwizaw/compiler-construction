@@ -62,6 +62,16 @@ and read_string start buf =
             read_string start buf lexbuf
         }
 
+        | "\\n" { 
+            Buffer.add_char buf '\n';
+            read_string start buf lexbuf
+        }
+
+        | "\\\\" {
+            Buffer.add_char buf '\\';
+            read_string start buf lexbuf
+        }
+
         | [^ '"' '\\']+ {
             Buffer.add_string buf (Lexing.lexeme lexbuf);
             read_string start buf lexbuf
@@ -71,7 +81,8 @@ and read_string start buf =
 
 and read_character start =
     parse
-        | "\\n" { next_line lexbuf; end_character start '\n' lexbuf }
+        | "\\n" { end_character start '\n' lexbuf }
+        | "\\\\" { end_character start '\\' lexbuf }
         | line { next_line lexbuf; end_character start '\n' lexbuf }
         | eof { UNTERMINATED_CHAR start }
         | _ { end_character start (Lexing.lexeme lexbuf).[0] lexbuf }
