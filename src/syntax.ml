@@ -15,7 +15,7 @@ let rec dechunk = function
     | [] -> []
     | h :: t -> h.data :: dechunk t
 
-type write_item =
+type io_method =
     | AsChar
     | AsInt
 
@@ -45,7 +45,8 @@ and expr =
     | Value of value_item
     | Op of op_item
     | Apply of apply_spec
-    | Write of write_item
+    | Write of io_method
+    | Read of io_method
     | PopEnv
 
 and program_t = {
@@ -93,6 +94,10 @@ let rec string_of_expr = function
     | Write w -> begin match w with
         | AsChar -> "Write[Char]"
         | AsInt -> "Write[Int]"
+    end
+
+    | Read r -> begin match r with
+        | AsChar -> "Read[Char]"
     end
 
     | PopEnv -> "Pop[]" (* Shouldn't usually be seen *)

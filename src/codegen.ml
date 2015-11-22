@@ -44,7 +44,9 @@ let generate_code opt_flags size_flags instrs =
                     | Instr.Write (Instr.Const (v, Instr.AsInt)) -> Buffer.add_string asm (Asm.write_block (`ConstInt v))
                     | Instr.Write (Instr.Const (v, Instr.AsChar)) -> Buffer.add_string asm (Asm.write_block (`ConstChar v))
                     | Instr.Write (Instr.Top Instr.AsInt) -> Buffer.add_string asm (Asm.write_block (`TopInt))
-                    | Instr.Write (Instr.Top Instr.AsInt) -> Buffer.add_string asm (Asm.write_block (`TopChar))
+                    | Instr.Write (Instr.Top Instr.AsChar) -> Buffer.add_string asm (Asm.write_block (`TopChar))
+
+                    | Instr.Read Instr.AsChar -> Buffer.add_string asm (Asm.read_block `Char)
 
                     | _ -> () (* TODO *)
                 end;

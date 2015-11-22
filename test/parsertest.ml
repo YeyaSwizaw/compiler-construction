@@ -80,6 +80,8 @@ let run () =
         parser_test "(815)" (Ok "Apply[815]");
 
         parser_test "." (Ok "Write[Int]");
+        parser_test "," (Ok "Write[Char]");
+        parser_test "~" (Ok "Read[Char]");
 
         parser_test "r: 17" (Ok "Name[r:Int[17]]");
         parser_test "corn: bacon" (Ok "Name[corn:Id[bacon]]");
@@ -102,7 +104,7 @@ let run () =
         parser_test "1\n(corn" (Err [(2, 0), (2, 0)]);
         parser_test "'ab'" (Err [(1, 0), (1, 0); (1, 3), (1, 3)]);
         parser_test "'\n15 \"a" (Err [(1, 0), (1, 0); (2, 3), (2, 3)]);
-        parser_test "12 13 ~\n(" (Err [(1, 6), (1, 7); (2, 0), (2, 0)]);
+        parser_test "12 13 $\n(" (Err [(1, 6), (1, 7); (2, 0), (2, 0)]);
         parser_test "56\n45 \"hello\n\narc" (Err [(2, 3), (2, 3)]);
         parser_test "{\n6" (Err [(1, 0), (1, 0)]);
         parser_test "6\na -> {" (Err [(2, 5), (2, 5)]);

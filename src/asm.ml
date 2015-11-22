@@ -114,12 +114,12 @@ arg_loop_" ^ n ^ ":
 
 let write_block = function
     | `ConstChar v ->
-"    movq   \\$" ^ string_of_int v ^ ", %rdi
-    call   putchar
+"    movq    \\$" ^ string_of_int v ^ ", %rdi
+    call    putchar
 "
 
     | `ConstInt v ->
-"    movq   \\$" ^ string_of_int v ^ ", %rsi
+"    movq    \\$" ^ string_of_int v ^ ", %rsi
     movq    \\$int_format_str, %rdi
     movq    \\$0, %rax
     call    printf
@@ -129,6 +129,7 @@ let write_block = function
 "    movq    stack_pos(%rip), %rax
     subq    \\$1, %rax
     movq    stack(%rip), %rdx
+    xorq    %rdi, %rdi
     movq    (%rdx, %rax, 8), %rdi
     call    putchar
 "
@@ -141,6 +142,18 @@ let write_block = function
     movq    \\$int_format_str, %rdi
     movq    \\$0, %rax
     call    printf
+"
+
+let read_block = function
+    | `Char ->
+"    movq    \\$0, %rax 
+    call    getchar
+    movq    stack_pos(%rip), %rsi
+    leaq    1(%rsi), %rdx
+    movq    %rdx, stack_pos(%rip)
+    movq    stack(%rip), %rdx
+    movq    \\$0, (%rdx, %rsi, 8)
+    movl    %eax, (%rdx, %rsi, 8)
 "
 
 let op_block op =

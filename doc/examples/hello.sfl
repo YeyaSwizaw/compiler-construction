@@ -1,17 +1,40 @@
+pop: x -> {}
+
+read: term -> {
+    term ~
+    ch -> term -> {
+        ch term 
+
+        term -> ch -> {
+            term read ()
+            ch
+        }
+
+        pop
+
+        ch term = ()
+
+        ? () ()
+    }
+    ()
+}
+
 print: c -> {
     c
 
     c -> {
-        c .
-        c -> {} ()
+        c ,
+        pop ()
         print ()
     }
 
-    c -> {}
+    pop
 
     c 0 = ()
 
     ? () ()
 }
 
-0 "Hello World\n" print ()
+0 "What is your name? " print ()
+0 '\n' read () 
+"Hello, " print ()

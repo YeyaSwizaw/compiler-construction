@@ -20,6 +20,7 @@ open Syntax.Env
 %token COLON
 %token DOT
 %token COMMA
+%token TILDE
 %token ARROW
 %token SUB
 %token DIVIDE
@@ -80,6 +81,7 @@ expr:
 
     | COMMA { Errors.Ok ({location=$startpos; data=(Syntax.Write Syntax.AsChar)}) }
     | DOT { Errors.Ok ({location=$startpos; data=(Syntax.Write Syntax.AsInt)}) }
+    | TILDE { Errors.Ok ({location=$startpos; data=(Syntax.Read Syntax.AsChar)}) }
 
     | error { Errors.Err([Errors.expected_expression $startpos $endpos]) }
 

@@ -19,13 +19,13 @@ type fn_t =
     | TriOp of triop_t
     | Named of string * int
 
-type write_method_t =
+type io_method_t =
     | AsInt
     | AsChar
 
 type write_t =
-    | Top of write_method_t
-    | Const of int * write_method_t
+    | Top of io_method_t
+    | Const of int * io_method_t
 
 type apply_t =
     | Full
@@ -38,6 +38,7 @@ type instruction =
     | PushConst of value_t
     | PushArg of int
     | Write of write_t
+    | Read of io_method_t
     | Apply of apply_t
 
 module Fns = Map.Make(String)
@@ -80,6 +81,8 @@ let string_of_instr = function
     | Write (Top AsInt) -> "Write[Int[]]"
     | Write (Const (i, AsChar)) -> "Write[Char[" ^ string_of_int i ^ "]]"
     | Write (Const (i, AsInt)) -> "Write[Int[" ^ string_of_int i ^ "]]"
+
+    | Read AsChar -> "Read[Char[]]"
 
 let rec string_of_args = function
     | [] -> ""
@@ -316,6 +319,8 @@ let generate_instructions opt_flags code =
                 | (PushConst (Int i)) as p :: rest -> generate_function (p :: Write (Const (i, AsInt)) :: rest) env tl
                 | _ -> generate_function (Write (Top AsInt) :: instrs) env tl
             end
+
+            | Syntax.Read Syntax.AsChar -> generate_function (Read AsChar :: instrs) env tl
 
             | _ -> begin
                 errors := (Errors.not_implemented exp_block.Syntax.location) :: !errors;

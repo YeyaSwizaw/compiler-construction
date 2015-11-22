@@ -116,7 +116,12 @@ let run () =
         instr_test "line .\nline: 10" (Ok ":[0]:Push[Int[10]]Write[Int[10]]\n");
         instr_test "2 4 + () ." (Ok ":[0]:Push[Int[6]]Write[Int[6]]\n");
         instr_test ~cf:false "2 4 + () ." (Ok ":[0]:Write[Int[]]Apply[]Push[Fn[+]]Push[Int[4]]Push[Int[2]]\n");
+        instr_test ~cf:false "2 4 + () ," (Ok ":[0]:Write[Char[]]Apply[]Push[Fn[+]]Push[Int[4]]Push[Int[2]]\n");
         instr_test "'a' ," (Ok ":[0]:Push[Int[97]]Write[Char[97]]\n");
+
+        (* Read *)
+        instr_test "~" (Ok ":[0]:Read[Char[]]\n");
+        instr_test "2 ~ + ()" (Ok ":[0]:Apply[]Push[Fn[+]]Read[Char[]]Push[Int[2]]\n");
 
         instr_test "a" (Err [(1, 0), (1, 0)]);
         instr_test "a -> { b }" (Err [(1, 7), (1, 7)]);
