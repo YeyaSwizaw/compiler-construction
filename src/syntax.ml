@@ -92,6 +92,7 @@ let rec string_of_expr = function
 
     | Write w -> begin match w with
         | AsChar -> "Write[Char]"
+        | AsInt -> "Write[Int]"
     end
 
     | PopEnv -> "Pop[]" (* Shouldn't usually be seen *)

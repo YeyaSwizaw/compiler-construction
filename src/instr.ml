@@ -79,7 +79,7 @@ let string_of_instr = function
     | Write (Top AsChar) -> "Write[Char[]]"
     | Write (Top AsInt) -> "Write[Int[]]"
     | Write (Const (i, AsChar)) -> "Write[Char[" ^ string_of_int i ^ "]]"
-    | Write (Const (i, AsInt)) -> "Write[[" ^ string_of_int i ^ "]]"
+    | Write (Const (i, AsInt)) -> "Write[Int[" ^ string_of_int i ^ "]]"
 
 let rec string_of_args = function
     | [] -> ""

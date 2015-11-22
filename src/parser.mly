@@ -78,8 +78,8 @@ expr:
     | o = op { o }
     | c = callspec { c }
 
-    | DOT { Errors.Ok ({location=$startpos; data=(Syntax.Write Syntax.AsChar)}) }
-    | COMMA { Errors.Ok ({location=$startpos; data=(Syntax.Write Syntax.AsInt)}) }
+    | COMMA { Errors.Ok ({location=$startpos; data=(Syntax.Write Syntax.AsChar)}) }
+    | DOT { Errors.Ok ({location=$startpos; data=(Syntax.Write Syntax.AsInt)}) }
 
     | error { Errors.Err([Errors.expected_expression $startpos $endpos]) }
 

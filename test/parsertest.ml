@@ -79,7 +79,7 @@ let run () =
         parser_test "(8)" (Ok "Apply[8]");
         parser_test "(815)" (Ok "Apply[815]");
 
-        parser_test "." (Ok "Write[Char]");
+        parser_test "." (Ok "Write[Int]");
 
         parser_test "r: 17" (Ok "Name[r:Int[17]]");
         parser_test "corn: bacon" (Ok "Name[corn:Id[bacon]]");
