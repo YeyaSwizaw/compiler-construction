@@ -13,6 +13,7 @@ type syntax_error_t =
 
 type error =
     | NotImplemented of Lexing.position
+    | NotEnoughArgs of Lexing.position
     | UndefinedName of string * Lexing.position
     | RedefinedName of string * Lexing.position * Lexing.position
     | UnterminatedLBrace of Lexing.position
@@ -29,6 +30,7 @@ type ('a, 'b) result =
 type 'a parse_result = ('a, (error list)) result
 
 let not_implemented p = NotImplemented p
+let not_enough_args p = NotEnoughArgs p
 let undefined_name n p1 = UndefinedName (n, p1)
 let redefined_name n p1 p2 = RedefinedName (n, p1, p2)
 let unterminated_lbrace p = UnterminatedLBrace p
@@ -82,6 +84,13 @@ let rec print_errors file = function
                 AT.print_string [AT.Bold; AT.blue] ("[" ^ string_of_position pos ^ "]");
                 print_newline ();
                 print_endline "Use of unimplemented features:";
+                print_error_location file pos;
+            )
+
+            | NotEnoughArgs pos -> (
+                AT.print_string [AT.Bold; AT.blue] ("[" ^ string_of_position pos ^ "]");
+                print_newline ();
+                print_endline "Not enough arguments for function application at:";
                 print_error_location file pos;
             )
 

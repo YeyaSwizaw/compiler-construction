@@ -1,80 +1,72 @@
 (* Compiler Construction - codegen.ml *)
 (* Samuel Sleight *)
 
-module S = Set.Make(String)
+open Llvm
 
-let rec idx item = function
-    | [] -> 0
-    | hd::tl -> if item = hd then 0 else 1 + (idx item tl)
+module Values = Map.Make(struct type t = int let compare = compare end)
 
-let generate_code opt_flags size_flags instrs = 
-    let asm = Buffer.create 1024 in
-    let used_fns = ref S.empty in
+let generate_code opt_flags size_flags fns = 
+    let ctx = global_context () in
+    let mdl = create_module ctx "sfl_mdl" in
+    let bld = builder ctx in
 
-    let generate_code curr_name code = 
-        let push_queue = Queue.create () in
+    (* Typedefs *)
+    let void_t = void_type ctx in
+    let int_t = integer_type ctx 64 in
 
-        let push_fn args name =
-            Queue.push (`Fn (name, args)) push_queue;
-            used_fns := S.add name !used_fns
-        in
+    let main_t = function_type void_t [||] in
 
-        let generate_expr = function
-            | Instr.PushConst (Instr.Int i) -> Queue.push (`Int i) push_queue
-            | Instr.PushArg n -> Queue.push (`Arg n) push_queue
-            | Instr.PushConst (Instr.Fn (Instr.BinOp Instr.Add)) -> push_fn 2 "add"
-            | Instr.PushConst (Instr.Fn (Instr.BinOp Instr.Sub)) -> push_fn 2 "sub"
-            | Instr.PushConst (Instr.Fn (Instr.BinOp Instr.Mul)) -> push_fn 2 "mul"
-            | Instr.PushConst (Instr.Fn (Instr.BinOp Instr.Div)) -> push_fn 2 "div"
-            | Instr.PushConst (Instr.Fn (Instr.BinOp Instr.Eq)) -> push_fn 2 "eq_cmp"
-            | Instr.PushConst (Instr.Fn (Instr.BinOp Instr.Lt)) -> push_fn 2 "lt_cmp"
-            | Instr.PushConst (Instr.Fn (Instr.BinOp Instr.Gt)) -> push_fn 2 "gt_cmp"
-            | Instr.PushConst (Instr.Fn (Instr.TriOp Instr.Ite)) -> push_fn 3 "ite"
-            | Instr.PushConst (Instr.Fn (Instr.Named (s, n))) -> push_fn n s
+    let get_fn fn_t name = declare_function name fn_t mdl in
+    
+    let get_fn_putchar () = get_fn (function_type int_t [|int_t|]) "putchar" in
+    let get_fn_getchar () = get_fn (function_type int_t [||]) "getchar" in
 
-            | other -> begin
-                if not (Queue.is_empty push_queue) then begin
-                    Buffer.add_string asm (Asm.push_block push_queue);
-                    Queue.clear push_queue;
-                end;
+    (* Codegen *)
+    let generate_function name code = 
+        let code_fn = get_fn main_t name in
+        let block = append_block ctx "entry" code_fn in
+        position_at_end block bld;
 
-                begin match other with
-                    | Instr.Apply Instr.Full -> Buffer.add_string asm (Asm.apply_block opt_flags ())
+        let next_value = let next = ref 0 in (fun () -> next := !next + 1; !next - 1) in
+        let stored_values = ref Values.empty in
 
-                    | Instr.Write (Instr.Const (v, Instr.AsInt)) -> Buffer.add_string asm (Asm.write_block (`ConstInt v))
-                    | Instr.Write (Instr.Const (v, Instr.AsChar)) -> Buffer.add_string asm (Asm.write_block (`ConstChar v))
-                    | Instr.Write (Instr.Top Instr.AsInt) -> Buffer.add_string asm (Asm.write_block (`TopInt))
-                    | Instr.Write (Instr.Top Instr.AsChar) -> Buffer.add_string asm (Asm.write_block (`TopChar))
+        let rec generate_value = function
+            | Instr.Const (Instr.Int i) -> const_int int_t i
+            | Instr.Stored n -> Values.find n !stored_values
+            | Instr.Read Instr.AsChar -> build_call (get_fn_getchar ()) [||] "" bld
 
-                    | Instr.Read Instr.AsChar -> Buffer.add_string asm (Asm.read_block `Char)
-
-                    | _ -> () (* TODO *)
-                end;
+            | Instr.BinOp (op, x, y) -> begin
+                let x_v = generate_value x in
+                let y_v = generate_value y in
+                match op with
+                    | Instr.Add -> build_add x_v y_v "" bld
+                    | Instr.Sub -> build_sub x_v y_v "" bld
+                    | Instr.Mul -> build_mul x_v y_v "" bld
+                    | Instr.Div -> build_sdiv x_v y_v "" bld
             end
         in
 
-        List.iter generate_expr (List.rev code.Instr.code);
+        let generate_instr = function
+            | Instr.WriteConst (Instr.AsChar, v) -> begin
+                let value = generate_value (Instr.Const v) in
+                ignore (build_call (get_fn_putchar ()) [|value|] "" bld)
+            end
 
-        if not (Queue.is_empty push_queue) then begin
-            Buffer.add_string asm (Asm.push_block push_queue);
-            Queue.clear push_queue;
-        end;
+            | Instr.WriteStored (Instr.AsChar, n) -> begin
+                let value = generate_value (Instr.Stored n) in
+                ignore (build_call (get_fn_putchar ()) [|value|] "" bld)
+            end
+
+            | Instr.Store v -> begin
+                let value = generate_value v in
+                stored_values := Values.add (next_value ()) value !stored_values
+            end
+        in
+
+        List.iter generate_instr code;
+        ignore (build_ret_void bld)
     in
 
-    let generate_function name code =
-        if name = "" then begin 
-            Buffer.add_string asm Asm.main_begin;
-            generate_code name code;
-            Buffer.add_string asm Asm.main_end;
-        end else begin
-            Buffer.add_string asm (Asm.function_begin name);
-            generate_code name code;
-            Buffer.add_string asm (Asm.function_end code.Instr.args)
-        end
-    in
 
-    Buffer.add_string asm (Asm.data_segment size_flags);
-    Instr.Fns.iter generate_function instrs;
-    S.iter (fun op -> Buffer.add_string asm (Asm.op_block op)) !used_fns;
-
-    Errors.Ok (Buffer.contents asm)
+    Instr.Fns.iter (fun name instrs -> generate_function (if name = "" then "main" else name) instrs.Instr.code) fns;
+    Errors.Ok (string_of_llmodule mdl)

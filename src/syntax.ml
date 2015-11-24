@@ -98,6 +98,7 @@ let rec string_of_expr = function
 
     | Read r -> begin match r with
         | AsChar -> "Read[Char]"
+        | AsInt -> "Read[Int]"
     end
 
     | PopEnv -> "Pop[]" (* Shouldn't usually be seen *)

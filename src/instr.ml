@@ -1,353 +1,171 @@
 (* Compiler Construction - instr.ml *)
 (* Samuel Sleight *)
 
-(* Instruction types *)
+(* Value types *)
 type binop_t =
     | Add
     | Sub
     | Mul
     | Div
-    | Eq
-    | Lt
-    | Gt
-
-type triop_t =
-    | Ite
 
 type fn_t = 
     | BinOp of binop_t
-    | TriOp of triop_t
-    | Named of string * int
 
-type io_method_t =
-    | AsInt
+type io_t =
     | AsChar
-
-type write_t =
-    | Top of io_method_t
-    | Const of int * io_method_t
-
-type apply_t =
-    | Full
+    | AsInt
 
 type value_t =
     | Int of int
     | Fn of fn_t
 
-type instruction =
-    | PushConst of value_t
-    | PushArg of int
-    | Write of write_t
-    | Read of io_method_t
-    | Apply of apply_t
+type value_source =
+    | Const of value_t
+    | BinOp of binop_t * value_source * value_source
+    | Read of io_t
+    | Stored of int
 
-module Fns = Map.Make(String)
+(* Instruction types *)
+type instruction_t =
+    | WriteConst of io_t * value_t
+    | WriteStored of io_t * int
+    | Store of value_source
 
+(* Env type *)
 type 'a env = {
     env: 'a list;
     parent: ('a env) option;
     args: string list;
-    arg_values: (instruction list) option;
+    arg_values: (instruction_t list) option;
     name: string;
 }
 
-type fn = {
-    code: instruction list;
-    args: int;
+let make_env ?(parent=None) ?(name="") ?(args=[]) env = {
+    env = Syntax.Env.fold (fun name value acc -> match value.Syntax.data with
+        | Syntax.Int i -> `Int (name, i) :: acc
+        | Syntax.Char c -> `Int (name, int_of_char c) :: acc
+        | Syntax.Ident n -> `Ident (name, n) :: acc
+        | Syntax.String s -> `String (name, s) :: acc
+        | Syntax.Function (a, p) -> `Fn (name, a, p) :: acc
+    ) env [];
+    parent = parent;
+    args = args;
+    arg_values = None;
+    name = name;
 }
 
+(* Result type *)
+type result_fn = {
+    code: instruction_t list;
+    args: int
+}
 
-(* Stringifying *)
+module Fns = Map.Make(String)
+
+(* Stringify *)
+let string_of_binop = function
+    | Add -> "Add"
+    | Sub -> "Sub"
+    | Mul -> "Mul"
+    | Div -> "Div"
+
+let string_of_value = function
+    | Int i -> string_of_int i
+    | Fn (BinOp op) -> string_of_binop op
+
+let rec string_of_value_source = function
+    | Const v -> string_of_value v
+    | BinOp (op, x, y) -> string_of_binop op ^ "[" ^ string_of_value_source x ^ ":" ^ string_of_value_source y ^ "]"
+    | Read AsChar -> "Read[Char]"
+    | Stored n -> "Stored[" ^ string_of_int n ^ "]"
+
 let string_of_instr = function
-    | PushConst (Int i) -> "Push[Int[" ^ (string_of_int i) ^"]]"
+    | WriteConst (AsChar, v) -> "[Write[Char:" ^ string_of_value v ^ "]]"
+    | WriteStored (AsChar, v) -> "[Write[Char:Stored[" ^ string_of_int v ^ "]]]"
+    | WriteConst (AsInt, v) -> "[Write[Int:" ^ string_of_value v ^ "]]"
+    | WriteStored (AsInt, v) -> "[Write[Int:Stored[" ^ string_of_int v ^ "]]]"
+    | Store v -> "[Store " ^ string_of_value_source v ^ "]"
 
-    | PushConst (Fn (BinOp Add)) -> "Push[Fn[+]]"
-    | PushConst (Fn (BinOp Sub)) -> "Push[Fn[-]]"
-    | PushConst (Fn (BinOp Mul)) -> "Push[Fn[*]]"
-    | PushConst (Fn (BinOp Div)) -> "Push[Fn[/]]"
-    | PushConst (Fn (BinOp Eq)) -> "Push[Fn[=]]"
-    | PushConst (Fn (BinOp Lt)) -> "Push[Fn[<]]"
-    | PushConst (Fn (BinOp Gt)) -> "Push[Fn[>]]"
+let string_of_fn name fn = begin
+    let buf = Buffer.create 20 in
+    Buffer.add_string buf (name ^ ":" ^ string_of_int fn.args ^ ":");
+    List.iter (fun instr -> Buffer.add_string buf (string_of_instr instr)) fn.code;
+    Buffer.add_string buf "\n";
+    Buffer.contents buf;
+end
 
-    | PushConst (Fn (TriOp Ite)) -> "Push[Fn[?]]"
+let string_of_fns fns = begin
+    let buf = Buffer.create 50 in
+    Fns.iter (fun name fn -> Buffer.add_string buf (string_of_fn name fn)) fns;
+    Buffer.contents buf
+end
 
-    | PushConst (Fn (Named (s, _))) -> "Push[Fn[" ^ s ^ "]]"
+(* Impl *)
+let push_string values str = begin
+    let ls = ref [] in
+    String.iter (fun c -> ls := Const (Int (int_of_char c)) :: !ls) str;
+    (List.rev !ls) @ values
+end
 
-    | PushArg i -> "Push[Arg[" ^ (string_of_int i) ^ "]]"
+let apply_binop values op x y = match (op, x, y) with
+    | (Add, Const (Int x), Const (Int y)) -> Const (Int (x + y)) :: values
+    | (Sub, Const (Int x), Const (Int y)) -> Const (Int (x - y)) :: values
+    | (Mul, Const (Int x), Const (Int y)) -> Const (Int (x * y)) :: values
+    | (Div, Const (Int x), Const (Int y)) -> Const (Int (x / y)) :: values
 
-    | Apply Full -> "Apply[]"
+    | _ -> BinOp (op, x, y) :: values
 
-    | Write (Top AsChar) -> "Write[Char[]]"
-    | Write (Top AsInt) -> "Write[Int[]]"
-    | Write (Const (i, AsChar)) -> "Write[Char[" ^ string_of_int i ^ "]]"
-    | Write (Const (i, AsInt)) -> "Write[Int[" ^ string_of_int i ^ "]]"
-
-    | Read AsChar -> "Read[Char[]]"
-
-let rec string_of_args = function
-    | [] -> ""
-    | [arg] -> arg
-    | arg :: args -> arg ^ ", " ^ (string_of_args args)
-
-let string_of_fns fns = 
-    Fns.fold 
-        (fun name fn acc -> 
-            let fn_str = List.fold_left (fun acc instr -> acc ^ (string_of_instr instr)) "" fn.code in
-            acc ^ name ^ ":[" ^ (string_of_int fn.args) ^ "]:" ^ fn_str ^ "\n"
-        ) fns ""
-
-(* Convert parse tree to instructions *)
-let generate_instructions opt_flags code =
-    let next_id = let prev = ref 0 in (fun () -> prev := !prev + 1; !prev) in
-
-    let make_env ?(parent=None) ?(name="") ?(args=[]) env = {
-        env = Syntax.Env.fold (fun name value acc -> match value.Syntax.data with
-            | Syntax.Int i -> `Int (name, i) :: acc
-            | Syntax.Char c -> `Int (name, int_of_char c) :: acc
-            | Syntax.Ident i -> `Ident (name, i) :: acc
-            | Syntax.String s -> `String (name, s) :: acc
-            | Syntax.Function (a, p) -> `Fn (name, a, p) :: acc
-        ) env [];
-        parent = parent;
-        args = args;
-        arg_values = None;
-        name = name;
-    } 
-    in
-
-    let fn_envs = ref Fns.empty in
-    let result = ref Fns.empty in
+let generate_instrs opt_flags code =
     let errors = ref [] in
+    let result = ref Fns.empty in
 
-    let rec make_env_name env = match env.parent with
-        | Some parent -> (make_env_name parent) ^ "_" ^ env.name
-        | None -> env.name
-    in
+    let rec generate_function instrs values env stored = function
+        | [] -> List.rev instrs
+        | exp_block :: code -> begin match exp_block.Syntax.data with
+            (* Basic Values *)
+            | Syntax.Value (Syntax.Int i) -> generate_function instrs (Const (Int i) :: values) env stored code
+            | Syntax.Value (Syntax.Char c) -> generate_function instrs (Const (Int (int_of_char c)) :: values) env stored code
+            | Syntax.Value (Syntax.String s) -> generate_function instrs (push_string values s) env stored code
 
-    let rec idx item = function
-        | [] -> None 
-        | hd::tl -> if item = hd then (Some 0) else begin match idx item tl with
-            | Some n -> Some (n + 1)
-            | None -> None
-        end
-    in
+            (* Binary Operators *)
+            | Syntax.Op Syntax.Plus -> generate_function instrs (Const (Fn (BinOp Add)) :: values) env stored code
+            | Syntax.Op Syntax.Minus -> generate_function instrs (Const (Fn (BinOp Sub)) :: values) env stored code
+            | Syntax.Op Syntax.Times -> generate_function instrs (Const (Fn (BinOp Mul)) :: values) env stored code
+            | Syntax.Op Syntax.Divide -> generate_function instrs (Const (Fn (BinOp Div)) :: values) env stored code
 
-    let rec pop_args n instrs = if n = 0 then 
-        Some ([], instrs)
-    else match instrs with
-        | ((PushConst _) as v) :: rest -> begin match pop_args (n - 1) rest with
-            | Some (args, more) -> Some (v :: args, more)
-            | None -> None
-        end
-
-        | ((Write (Const _)) as w) :: v :: rest -> begin match pop_args n (v :: rest) with
-            | Some (args, more) -> Some (args, w :: more)
-            | None -> None
-        end
-
-        | other -> None
-    in
-
-    let apply_binop rest = function
-        | (Add, Int i1, Int i2) -> (PushConst (Int (i1 + i2))) :: rest
-        | (Mul, Int i1, Int i2) -> (PushConst (Int (i1 * i2))) :: rest
-        | (Sub, Int i1, Int i2) -> (PushConst (Int (i1 - i2))) :: rest
-        | (Div, Int i1, Int i2) -> (PushConst (Int (i1 / i2))) :: rest
-        | (Eq, Int i1, Int i2) -> (PushConst (Int (if i1 = i2 then 1 else 0))) :: rest
-        | (Gt, Int i1, Int i2) -> (PushConst (Int (if i1 > i2 then 1 else 0))) :: rest
-        | (Lt, Int i1, Int i2) -> (PushConst (Int (if i1 < i2 then 1 else 0))) :: rest
-        | (o, a1, a2) -> (Apply Full) :: (PushConst (Fn (BinOp o))) :: (PushConst a1) :: (PushConst a2) :: rest
-    in
-
-    let apply_triop rest = function
-        | (Ite, Int i, c1, c2) -> (PushConst (if i == 0 then c2 else c1)) :: rest
-        | (o, a1, a2, a3) -> (Apply Full) :: (PushConst (Fn (TriOp o))) :: (PushConst a1) :: (PushConst a2) :: (PushConst a3) :: rest
-    in
-
-    let attempt_fold = function
-        | ((PushConst (Fn (BinOp op))) as f) :: rest -> begin match pop_args 2 rest with
-            | Some ([PushConst a1; PushConst a2], more) -> apply_binop more (op, a1, a2)
-            | None -> (Apply Full) :: f :: rest
-        end
-
-        | ((PushConst (Fn (TriOp op))) as f) :: rest -> begin match pop_args 3 rest with
-            | Some ([PushConst a1; PushConst a2; PushConst a3], more) -> apply_triop more (op, a1, a2, a3)
-            | None -> (Apply Full) :: f :: rest
-        end
-            
-        | xs -> (Apply Full) :: xs
-    in
-
-    let push_string instrs str =
-        let ls = ref [] in
-        String.iter (fun c -> ls := (PushConst (Int (int_of_char c)) :: !ls)) str;
-        (List.rev !ls) @ instrs
-    in
-
-    let rec env_lookup ?(base=true) instrs location name env = 
-        (* Lookup in environment *)
-        let rec list_lookup = function
-            | [] -> None
-            | `Int (n, i) :: tl -> if name = n then Some (PushConst (Int i) :: instrs) else list_lookup tl
-            | `String (n, s) :: tl -> if name = n then Some (push_string instrs s) else list_lookup tl
-            | `Ident (n, i) :: tl -> if name = n then Some (env_lookup instrs location i env) else list_lookup tl
-            | `Fn (n, a, p) :: tl -> if name = n then begin
-                let fn_name = (make_env_name env) ^ "_" ^ name in
-                try 
-                    let (_e, _) = Fns.find fn_name !fn_envs in
-                    Some (PushConst (Fn (Named (fn_name, List.length a))) :: instrs)
-                with
-                    Not_found -> begin
-                        let fn_env = make_env ~parent:(Some env) ~name:name ~args:a p.Syntax.env in
-                        fn_envs := Fns.add fn_name (fn_env, p.Syntax.code) !fn_envs;
-                        let fn = generate_function [] fn_env p.Syntax.code in
-                        result := Fns.add fn_name { code=fn; args=(List.length a); } !result;
-                        Some (PushConst (Fn (Named (fn_name, List.length a))) :: instrs)
+            (* Application *)
+            | Syntax.Apply Syntax.Full -> begin match values with
+                | Const (Fn (BinOp op)) :: rest -> begin match rest with
+                    | x :: y :: rest -> generate_function instrs (apply_binop rest op x y) env stored code
+                    | _ -> begin
+                        errors := Errors.not_enough_args exp_block.Syntax.location :: !errors;
+                        generate_function instrs values env stored code
                     end
-            end else
-                list_lookup tl
-        in
-
-        let parent_lookup () =
-            (* Lookup in parent *)
-            begin match env.parent with
-                | Some parent ->
-                    env_lookup 
-                        ~base:false
-                        instrs
-                        location
-                        name 
-                        parent
-
-                | None ->
-                    errors := (Errors.undefined_name name location) :: !errors;
-                    PushArg (-1) :: instrs
-            end
-        in
-
-        match list_lookup env.env with
-            | Some thing -> thing
-            | None -> begin
-                (* Lookup in arguments *)
-                match (base, idx name env.args) with
-                    | (true, Some n) -> begin
-                        if (n >= (List.length env.args)) || (n < 0) then begin
-                            parent_lookup ()
-                        end else begin
-                            begin match env.arg_values with
-                                | Some l -> (List.nth l n) :: instrs
-                                | None -> (PushArg ((List.length env.args) - n + 1)) :: instrs
-                            end
-                        end
-                    end
-
-                    | _ -> parent_lookup ()
-            end
-
-    and generate_function instrs env code = match code with
-        | [] -> instrs
-        | exp_block :: tl -> begin match exp_block.Syntax.data with
-            (* Push simple values *)
-            | Syntax.Value (Syntax.Int i) -> generate_function (PushConst (Int i) :: instrs) env tl
-            | Syntax.Value (Syntax.Char c) -> generate_function (PushConst (Int (int_of_char c)) :: instrs) env tl
-            | Syntax.Value (Syntax.String s) -> generate_function (push_string instrs s) env tl
-
-            (* Push anon function *)
-            | Syntax.Value (Syntax.Function (fn_args, fn_prog)) -> begin
-                let fn_id = next_id () in
-                let fn_name = (make_env_name env) ^ "_anon_" ^ (string_of_int fn_id) in
-                let fn_env = make_env ~parent:(Some env) ~name:("anon_" ^ string_of_int fn_id) ~args:fn_args fn_prog.Syntax.env in
-                fn_envs := Fns.add fn_name (fn_env, fn_prog.Syntax.code) !fn_envs;
-                let fn = generate_function [] fn_env fn_prog.Syntax.code in
-                result := Fns.add fn_name { code=fn; args=(List.length fn_args); } !result;
-                generate_function (PushConst (Fn (Named (fn_name, List.length fn_args))) :: instrs) env tl
-            end
-
-            (* Push named value *)
-            | Syntax.Value (Syntax.Ident i) -> generate_function (env_lookup instrs exp_block.Syntax.location i env) env tl 
-
-            (* Push operators *)
-            | Syntax.Op (Syntax.Plus) -> generate_function ((PushConst (Fn (BinOp Add))) :: instrs) env tl
-            | Syntax.Op (Syntax.Minus) -> generate_function ((PushConst (Fn (BinOp Sub))) :: instrs) env tl
-            | Syntax.Op (Syntax.Times) -> generate_function ((PushConst (Fn (BinOp Mul))) :: instrs) env tl
-            | Syntax.Op (Syntax.Divide) -> generate_function ((PushConst (Fn (BinOp Div))) :: instrs) env tl
-            | Syntax.Op (Syntax.Lt) -> generate_function ((PushConst (Fn (BinOp Lt))) :: instrs) env tl
-            | Syntax.Op (Syntax.Gt) -> generate_function ((PushConst (Fn (BinOp Gt))) :: instrs) env tl
-            | Syntax.Op (Syntax.Eq) -> generate_function ((PushConst (Fn (BinOp Eq))) :: instrs) env tl
-            | Syntax.Op (Syntax.IfThenElse) -> generate_function ((PushConst (Fn (TriOp Ite))) :: instrs) env tl
-
-            (* Apply function *)
-            | Syntax.Apply Syntax.Full -> begin match instrs with
-                | (PushConst (Fn (Named (n, a)))) :: rest -> begin
-                    if opt_flags.Flag.fe then
-                        let (fn_env, fn_code) = Fns.find n !fn_envs in
-                        begin match pop_args a rest with
-                            | Some (args, ls) -> begin
-                                generate_function 
-                                    ls 
-                                    { fn_env with 
-                                        arg_values=(Some args); 
-                                        name=env.name; 
-                                        parent=(Some env) 
-                                    } 
-                                    (fn_code @ { Syntax.location=Lexing.dummy_pos; Syntax.data=Syntax.PopEnv; } :: tl)
-                            end
-
-                            | None -> generate_function (Apply Full :: (PushConst (Fn (Named (n, a)))) :: rest) env tl
-                        end
-                    else
-                        generate_function (Apply Full :: (PushConst (Fn (Named (n, a)))) :: rest) env tl
                 end
-
-                | other -> if opt_flags.Flag.cf then
-                        generate_function (attempt_fold other) env tl
-                    else
-                        generate_function (Apply Full :: other) env tl
             end
 
-            | Syntax.PopEnv -> begin match env.parent with
-                | Some parent -> generate_function instrs parent tl
-                | None -> generate_function instrs env tl
+            (* Read *)
+            | Syntax.Read Syntax.AsChar -> generate_function instrs (Read AsChar :: values) env stored code
+            | Syntax.Read Syntax.AsInt -> generate_function instrs (Read AsInt :: values) env stored code
+
+            (* Write *)
+            | Syntax.Write Syntax.AsChar -> begin match values with
+                | Const value :: _ -> generate_function (WriteConst (AsChar, value) :: instrs) values env stored code
+                | Stored n :: _ -> generate_function (WriteStored (AsChar, n) :: instrs) values env stored code
+                | value :: rest -> generate_function (WriteStored (AsChar, stored) :: Store value :: instrs) (Stored stored :: rest) env (stored + 1) code
             end
 
-            | Syntax.Write Syntax.AsChar -> begin match instrs with
-                | (PushConst (Int i)) as p :: rest -> generate_function (p :: Write (Const (i, AsChar)) :: rest) env tl
-                | _ -> generate_function (Write (Top AsChar) :: instrs) env tl
-            end
-
-            | Syntax.Write Syntax.AsInt -> begin match instrs with
-                | (PushConst (Int i)) as p :: rest -> generate_function (p :: Write (Const (i, AsInt)) :: rest) env tl
-                | _ -> generate_function (Write (Top AsInt) :: instrs) env tl
-            end
-
-            | Syntax.Read Syntax.AsChar -> generate_function (Read AsChar :: instrs) env tl
-
-            | _ -> begin
-                errors := (Errors.not_implemented exp_block.Syntax.location) :: !errors;
-                generate_function instrs env tl
+            | Syntax.Write Syntax.AsInt -> begin match values with
+                | Const value :: _ -> generate_function (WriteConst (AsInt, value) :: instrs) values env stored code
+                | Stored n :: _ -> generate_function (WriteStored (AsInt, n) :: instrs) values env stored code
+                | value :: rest -> generate_function (WriteStored (AsInt, stored) :: Store value :: instrs) (Stored stored :: rest) env (stored + 1) code
             end
         end
     in
 
-    let fn = generate_function [] (make_env code.Syntax.env) code.Syntax.code in
-
-    let rec is_dead_from ?(seen=[]) name fn =
-        let called_fs = List.fold_left (fun acc item -> match item with 
-            | PushConst (Fn (Named (n, _))) -> (n :: acc)
-            | _ -> acc
-        ) [] fn in
-
-        List.fold_left (fun acc item -> 
-            acc || if item = name then 
-                true 
-            else if not (List.mem item seen) then
-                (is_dead_from ~seen:(called_fs @ seen) name (Fns.find item !result).code)
-            else
-                false
-        ) false called_fs
-    in
+    let fn = generate_function [] [] (make_env code.Syntax.env) 0 code.Syntax.code in
 
     if !errors = [] then
-        Errors.Ok (Fns.add "" { code=fn; args=0; } (Fns.filter (fun key f -> is_dead_from key fn) !result))
+        Errors.Ok (Fns.add "" { code=fn; args=0 } !result)
     else
         Errors.Err !errors

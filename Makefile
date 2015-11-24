@@ -4,7 +4,8 @@ DIRS = \
 
 LIBS = \
 	core \
-	ANSITerminal
+	ANSITerminal \
+	llvm
 
 MENHIR = menhir --unused-token ERROR
 OCAML = ocamlbuild -r $(addprefix -I , $(DIRS)) -X $(SFLLIB) -use-menhir -use-ocamlfind $(addprefix -pkg , $(LIBS)) -tag thread -menhir "$(MENHIR)"

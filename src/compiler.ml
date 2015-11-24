@@ -37,7 +37,7 @@ let run
 
     (* Run the first optimisation stage *)
     let instr_result = match parse_result with
-        | Continue (Errors.Ok prog) -> begin match Instr.generate_instructions opt_flags prog with
+        | Continue (Errors.Ok prog) -> begin match Instr.generate_instrs opt_flags prog with
             | Errors.Ok code -> begin match instr_callback with
                 | Some f -> if f code then Continue (Errors.Ok code) else Terminate
                 | None -> Continue (Errors.Ok code)
@@ -66,8 +66,10 @@ let run
 
     match compiler_result with
         | Continue (Errors.Ok code) -> (
+            (*
             let command = "echo \"" ^ code ^ "\" | cc -o " ^ output ^ " -xassembler -" in
             ignore (Sys.command command);
+            *)
             Errors.Ok(())
         )
 
