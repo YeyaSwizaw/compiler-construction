@@ -67,14 +67,6 @@ let rec make_env_name env = match env.parent with
     | Some parent -> (make_env_name parent) ^ "_" ^ env.name
     | None -> env.name
 
-let env_lookup env name values = match idx name env.args with
-    | Some n -> begin match env.arg_values with
-        | Some l -> (List.nth l n) :: values
-        | None -> (Arg n) :: values
-    end
-
-    | None -> values
-
 (* Result type *)
 type result_fn = {
     code: instruction_t list;
@@ -124,6 +116,12 @@ let string_of_fns fns = begin
 end
 
 (* Impl *)
+let push_string values str = begin
+    let ls = ref [] in
+    String.iter (fun c -> ls := Const (Int (int_of_char c)) :: !ls) str;
+    (List.rev !ls) @ values
+end
+
 let rec pop_args n values = if n = 0 then 
     Some ([], values)
 else match values with
@@ -133,12 +131,6 @@ else match values with
         | Some (args, more) -> Some (v :: args, more)
         | None -> None
     end
-
-let push_string values str = begin
-    let ls = ref [] in
-    String.iter (fun c -> ls := Const (Int (int_of_char c)) :: !ls) str;
-    (List.rev !ls) @ values
-end
 
 let apply_binop values op x y = match (op, x, y) with
     | (Add, Const (Int x), Const (Int y)) -> Const (Int (x + y)) :: values
@@ -155,7 +147,45 @@ let generate_instrs opt_flags code =
     let result = ref Fns.empty in
     let errors = ref [] in
 
-    let rec generate_function instrs values env stored = function
+    let rec env_lookup env name values = 
+        let rec local_lookup = function
+            | [] -> None
+            | `Int (n, i) :: tl -> if name = n then Some (Const (Int i) :: values) else local_lookup tl
+            | `Ident (n, i) :: tl -> if name = n then Some (env_lookup env i values) else local_lookup tl
+            | `String (n, s) :: tl -> if name = n then Some (push_string values s) else local_lookup tl
+            | `Fn (n, a, p) :: tl -> if name = n then begin
+                let fn_name = (make_env_name env) ^ "_" ^ name in
+                try
+                    let (_, _) = Fns.find fn_name !fn_envs in
+                    Some (Const (Fn (Named fn_name)) :: values)
+                with
+                    Not_found -> begin
+                        let fn_env = make_env ~parent:(Some env) ~name:name ~args:a p.Syntax.env in
+                        fn_envs := Fns.add fn_name (fn_env, p.Syntax.code) !fn_envs;
+                        let fn = generate_function [] [] fn_env 0 p.Syntax.code in
+                        result := Fns.add fn_name { code=fn; args=(List.length a); } !result;
+                        Some (Const (Fn (Named fn_name)) :: values)
+                    end
+            end else 
+                local_lookup tl
+        in
+
+        (* Lookup in local name scope *)
+        match local_lookup env.env with
+            | Some l -> l
+
+            (* Lookup in local arguments *)
+            | None -> begin match idx name env.args with
+                | Some n -> begin match env.arg_values with
+                    | Some l -> (List.nth l n) :: values
+                    | None -> (Arg n) :: values
+                end
+
+                (* TODO *)
+                | None -> values
+            end
+
+    and generate_function instrs values env stored = function
         | [] -> List.rev instrs
         | exp_block :: code -> begin match exp_block.Syntax.data with
             (* Basic Values *)

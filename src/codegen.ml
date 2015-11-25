@@ -18,7 +18,7 @@ let generate_code opt_flags size_flags fns =
 
     let get_fn fn_t name = declare_function name fn_t mdl in
     
-    let get_fn_putchar () = get_fn (function_type int_t [|int_t|]) "putchar" in
+    let get_fn_putchar () = get_fn (function_type void_t [|int_t|]) "putchar" in
     let get_fn_getchar () = get_fn (function_type int_t [||]) "getchar" in
 
     (* Codegen *)
