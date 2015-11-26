@@ -17,9 +17,10 @@ let generate_code opt_flags size_flags fns =
     let void_t = void_type ctx in
     let int_t = integer_type ctx 64 in
     let ptr_t = pointer_type int_t in
+    let ret_t = array_type int_t in
 
     let main_t = function_type void_t [||] in
-    let func_t returns = function_type void_t (Array.make (if returns = 0 then 1 else 2) ptr_t) in
+    let func_t returns = function_type (if returns = 0 then void_t else ret_t returns) [|ptr_t|] in
 
     let get_fn fn_t name = try
         Fns.find name !used_fns
@@ -124,7 +125,7 @@ let generate_code opt_flags size_flags fns =
             end
 
             | Instr.Apply (Instr.Named (n, args, ret)) -> begin
-                let mem = build_array_alloca int_t (const_int int_t (ret + (List.length args))) "" bld in
+                let mem = build_array_alloca int_t (const_int int_t (List.length args)) "" bld in
 
                 List.iteri (fun i arg ->
                     let ep = build_gep mem [|const_int int_t i|] "" bld in
@@ -134,18 +135,17 @@ let generate_code opt_flags size_flags fns =
                 if ret = 0 then
                     ignore (build_call (get_fn (func_t ret) n) [|mem|] "" bld)
                 else
-                    let retp = build_gep mem [|const_int int_t (List.length args)|] "" bld in
+                    let retobj = build_call (get_fn (func_t ret) n) [|mem|] "" bld in
+
                     let rec make_ret_store retn =
                         if retn = 0 then
                             ()
                         else begin
-                            let ep = build_gep retp [|const_int int_t (retn - 1)|] "" bld in
-                            stored_values := Values.add (next_value ()) (build_load ep "" bld) !stored_values;
+                            stored_values := Values.add (next_value ()) (build_extractvalue retobj (retn - 1) "" bld) !stored_values;
                             make_ret_store (retn - 1)
                         end
                     in
 
-                    build_call (get_fn (func_t ret) n) [|mem; retp|] "" bld;
                     make_ret_store ret
             end
 
@@ -153,7 +153,7 @@ let generate_code opt_flags size_flags fns =
                 let call_fn_t = func_t ret in
                 let fn_val = build_inttoptr (generate_value v) (pointer_type call_fn_t) "" bld in
 
-                let mem = build_array_alloca int_t (const_int int_t (ret + (List.length args))) "" bld in
+                let mem = build_array_alloca int_t (const_int int_t (List.length args)) "" bld in
 
                 List.iteri (fun i arg ->
                     let ep = build_gep mem [|const_int int_t i|] "" bld in
@@ -163,35 +163,31 @@ let generate_code opt_flags size_flags fns =
                 if ret = 0 then
                     ignore (build_call fn_val [|mem|] "" bld)
                 else
-                    let retp = build_gep mem [|const_int int_t (List.length args)|] "" bld in
+                    let retobj = build_call fn_val [|mem|] "" bld in
+
                     let rec make_ret_store retn =
                         if retn = 0 then
                             ()
                         else begin
-                            let ep = build_gep retp [|const_int int_t (retn - 1)|] "" bld in
-                            stored_values := Values.add (next_value ()) (build_load ep "" bld) !stored_values;
+                            stored_values := Values.add (next_value ()) (build_extractvalue retobj (retn - 1) "" bld) !stored_values;
                             make_ret_store (retn - 1)
                         end
                     in
 
-                    build_call fn_val [|mem; retp|] "" bld;
                     make_ret_store ret
             end
             
             | Instr.Return ret -> begin
                 if not (name = "main") then begin
-                    let rets = param code_fn 1 in
-                    List.iteri (fun i v ->
-                        let ep = build_gep rets [|const_int int_t i|] "" bld in
-                        ignore (build_store (generate_value v) ep bld)
-                    ) ret
+                    let ls = List.map generate_value ret in
+                    ignore (build_aggregate_ret (Array.of_list ls) bld)
                 end else
                     ()
             end
         in
 
         List.iter generate_instr code.Instr.code;
-        ignore (build_ret_void bld)
+        if name = "main" then ignore (build_ret_void bld) else ()
     in
 
 
