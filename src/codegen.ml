@@ -34,6 +34,9 @@ let generate_code opt_flags size_flags fns =
     
     let get_fn_putchar () = get_fn (function_type void_t [|int_t|]) "putchar" in
     let get_fn_getchar () = get_fn (function_type int_t [||]) "getchar" in
+    let get_fn_printf () = get_fn (var_arg_function_type void_t [|pointer_type (integer_type ctx 8)|]) "printf" in
+
+    let format_str = define_global "" (const_stringz ctx "%d") mdl in
 
     (* Codegen *)
     let generate_function name code = 
@@ -42,6 +45,7 @@ let generate_code opt_flags size_flags fns =
         let block = append_block ctx "entry" code_fn in
 
         set_function_call_conv (if name = "main" then CallConv.c else CallConv.fast) code_fn;
+        set_linkage (if name = "main" then (linkage code_fn) else Linkage.Internal) code_fn;
         position_at_end block bld;
 
         let next_value = let next = ref 0 in (fun () -> next := !next + 1; !next - 1) in
@@ -119,6 +123,13 @@ let generate_code opt_flags size_flags fns =
                 ignore (build_call (get_fn_putchar ()) [|value|] "" bld)
             end
 
+            | Instr.WriteStored (Instr.AsInt, n) -> begin
+                let value = generate_value (Instr.Stored n) in
+                let sp = build_gep format_str [|const_int int_t 0|] "" bld in
+                let spp = build_bitcast sp (pointer_type (integer_type ctx 8)) "" bld in
+                ignore (build_call (get_fn_printf ()) [|spp; value|] "" bld)
+            end
+
             | Instr.Store v -> begin
                 let value = generate_value v in
                 stored_values := Values.add (next_value ()) value !stored_values
@@ -150,7 +161,7 @@ let generate_code opt_flags size_flags fns =
             end
 
             | Instr.Apply (Instr.Value (v, args, ret)) -> begin
-                let call_fn_t = func_t ret in
+                let call_fn_t = func_t (match ret with | None -> 0 | Some n -> n) in
                 let fn_val = build_inttoptr (generate_value v) (pointer_type call_fn_t) "" bld in
 
                 let mem = build_array_alloca int_t (const_int int_t (List.length args)) "" bld in
@@ -160,22 +171,38 @@ let generate_code opt_flags size_flags fns =
                     ignore (build_store (generate_value arg) ep bld)
                 ) args;
 
-                if ret = 0 then
-                    ignore (build_call fn_val [|mem|] "" bld)
-                else
-                    let retobj = build_call fn_val [|mem|] "" bld in
+                match ret with
+                    | None | Some 0 -> ignore (build_call fn_val [|mem|] "" bld)
 
-                    let rec make_ret_store retn =
-                        if retn = 0 then
-                            ()
-                        else begin
-                            stored_values := Values.add (next_value ()) (build_extractvalue retobj (retn - 1) "" bld) !stored_values;
-                            make_ret_store (retn - 1)
-                        end
-                    in
+                    | Some n -> begin
+                        let retobj = build_call fn_val [|mem|] "" bld in
 
-                    make_ret_store ret
+                        let rec make_ret_store retn =
+                            if retn = 0 then
+                                ()
+                            else begin
+                                stored_values := Values.add (next_value ()) (build_extractvalue retobj (retn - 1) "" bld) !stored_values;
+                                make_ret_store (retn - 1)
+                            end
+                        in
+
+                        make_ret_store n
+                    end
             end
+
+            | Instr.Apply (Instr.Recurse (n, args)) -> begin
+                let mem = build_array_alloca int_t (const_int int_t (List.length args)) "" bld in
+
+                List.iteri (fun i arg ->
+                    let ep = build_gep mem [|const_int int_t i|] "" bld in
+                    ignore (build_store (generate_value arg) ep bld)
+                ) args;
+
+                ignore (build_call (get_fn (func_t 0) n) [|mem|] "" bld)
+            end
+
+            | Instr.Return [] ->
+                ignore (build_ret_void bld)
             
             | Instr.Return ret -> begin
                 if not (name = "main") then begin

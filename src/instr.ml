@@ -44,7 +44,8 @@ type value_source =
 
 type apply_t =
     | Named of string * (value_source list) * int
-    | Value of value_source * (value_source list) * int
+    | Value of value_source * (value_source list) * (int option)
+    | Recurse of string * (value_source list)
 
 (* Instruction types *)
 type instruction_t =
@@ -133,6 +134,7 @@ end
 let string_of_apply = function
     | Named (n, a, _) -> n ^ "[" ^ string_of_arg_list a ^ "]"
     | Value (v, a, _) -> string_of_value_source v ^ "[" ^ string_of_arg_list a ^ "]"
+    | Recurse (n, a) -> n ^ "[" ^ string_of_arg_list a ^ "]"
 
 let string_of_instr = function
     | WriteConst (AsChar, v) -> "[Write[Char:" ^ string_of_value v ^ "]]"
@@ -218,12 +220,12 @@ let generate_instrs opt_flags code =
     let errors = ref [] in
 
     let rec fn_type = function
-        | Const (Fn (Named n)) -> let fn = Fns.find n !result in Some (fn.args, fn.returns)
+        | Const (Fn (Named n)) -> let fn = Fns.find n !result in (Some fn.args, Some fn.returns)
         | TriOp (_, _, f1, f2) -> begin match (fn_type f1, fn_type f2) with
-            | (Some (a1, r1), Some (a2, r2)) -> if ((a1 = a2) & (r1 = r2)) then Some (a1, r1) else None
-            | _ -> None
+            | ((a1, r1), (a2, r2)) -> ((if a1 = a2 then a1 else None), (if r1 = r2 then r1 else None))
         end
-        | _ -> None
+
+        | _ -> (None, None)
     in
 
     let rec env_lookup env name values = 
@@ -343,29 +345,49 @@ let generate_instrs opt_flags code =
                         end
 
                 end else begin
-                    let fn = Fns.find n !result in
-                    match pop_args fn.args rest with
-                        | Some (args, rest) -> 
-                            generate_function 
-                                (Apply (Named (n, args, fn.returns)) :: instrs) 
-                                (make_ret fn.returns stored rest) 
-                                env 
-                                (stored + fn.returns) 
-                                code
+                    try
+                        let fn = Fns.find n !result in
+                        match pop_args fn.args rest with
+                            | Some (args, rest) -> 
+                                generate_function 
+                                    (Apply (Named (n, args, fn.returns)) :: instrs) 
+                                    (make_ret fn.returns stored rest) 
+                                    env 
+                                    (stored + fn.returns) 
+                                    code
 
-                        (* Cannot apply - TODO *)
-                        | None -> begin
-                            errors := Errors.not_enough_args exp_block.Syntax.location :: !errors;
-                            generate_function instrs values env stored code
+                            (* Cannot apply - TODO *)
+                            | None -> begin
+                                errors := Errors.not_enough_args exp_block.Syntax.location :: !errors;
+                                generate_function instrs values env stored code
+                            end
+                    with
+                        (* Recursion *)
+                        Not_found -> begin
+                            let (fn_env, _) = Fns.find n !fn_envs in
+                            match pop_args (List.length fn_env.args) rest with
+                                | Some (args, rest) ->
+                                    generate_function
+                                        (Apply (Recurse (n, args)) :: instrs)
+                                        rest
+                                        env
+                                        stored
+                                        code
+
+                                (* Cannot apply - TODO *)
+                                | None -> begin
+                                    errors := Errors.not_enough_args exp_block.Syntax.location :: !errors;
+                                    generate_function instrs values env stored code
+                                end
                         end
-
                 end
 
                 | v :: rest -> begin match fn_type v with
-                    | Some (argc, retc) -> begin match pop_args argc rest with
+                    (* Known return *)
+                    | (Some argc, Some retc) -> begin match pop_args argc rest with
                         | Some (args, rest) ->
                                 generate_function
-                                    (Apply (Value (v, args, retc)) :: instrs)
+                                    (Apply (Value (v, args, Some retc)) :: instrs)
                                     (make_ret retc stored rest)
                                     env
                                     (stored + retc)
@@ -377,7 +399,21 @@ let generate_instrs opt_flags code =
                         end
                     end
 
-                    | None -> generate_function instrs rest env stored code (* TODO *)
+                    (* Unknown return *)
+                    | (Some argc, None) -> begin match pop_args argc rest with
+                        | Some (args, rest) ->
+                            generate_function
+                                (Apply (Value (v, args, None)) :: instrs)
+                                rest
+                                env
+                                stored
+                                code
+
+                        | None -> begin
+                            errors := Errors.not_enough_args exp_block.Syntax.location :: !errors;
+                            generate_function instrs values env stored code
+                        end
+                    end
                 end
             end
 
