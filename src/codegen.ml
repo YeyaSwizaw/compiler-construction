@@ -48,6 +48,13 @@ let generate_code opt_flags size_flags fns =
 
         let rec generate_value  = function
             | Instr.Const (Instr.Int i) -> const_int int_t i
+
+            | Instr.Const (Instr.Fn (Instr.Named n)) -> begin
+                let fn = Instr.Fns.find n fns in
+                let func = get_fn (func_t fn.Instr.returns) n in
+                const_ptrtoint func int_t
+            end
+
             | Instr.Stored n -> Values.find n !stored_values
             | Instr.Read Instr.AsChar -> build_call (get_fn_getchar ()) [||] "" bld
 
@@ -59,6 +66,38 @@ let generate_code opt_flags size_flags fns =
                     | Instr.Sub -> build_sub x_v y_v "" bld
                     | Instr.Mul -> build_mul x_v y_v "" bld
                     | Instr.Div -> build_sdiv x_v y_v "" bld
+
+                    | Instr.Eq -> 
+                        let cmp = build_icmp Icmp.Eq x_v y_v "" bld in
+                        build_intcast cmp int_t "" bld
+
+                    | Instr.Lt -> 
+                        let cmp = build_icmp Icmp.Slt x_v y_v "" bld in
+                        build_intcast cmp int_t "" bld
+
+                    | Instr.Gt -> 
+                        let cmp = build_icmp Icmp.Sgt x_v y_v "" bld in
+                        build_intcast cmp int_t "" bld
+            end
+
+            | Instr.TriOp (op, q, x, y) -> begin
+                let cmp = build_icmp Icmp.Ne (generate_value q) (const_int int_t 0) "" bld in
+                let then_b = append_block ctx "true_case" code_fn in
+                let else_b = append_block ctx "false_case" code_fn in
+                let join_b = append_block ctx "join_if" code_fn in
+
+                build_cond_br cmp then_b else_b bld;
+
+                position_at_end then_b bld;
+                let then_v = generate_value x in
+                build_br join_b bld;
+
+                position_at_end else_b bld;
+                let else_v = generate_value y in
+                build_br join_b bld;
+
+                position_at_end join_b bld;
+                build_phi [then_v, then_b; else_v, else_b] "" bld
             end
 
             | Instr.Arg n -> begin
@@ -84,7 +123,7 @@ let generate_code opt_flags size_flags fns =
                 stored_values := Values.add (next_value ()) value !stored_values
             end
 
-            | Instr.Apply (n, args, ret) -> begin
+            | Instr.Apply (Instr.Named (n, args, ret)) -> begin
                 let mem = build_array_alloca int_t (const_int int_t (ret + (List.length args))) "" bld in
 
                 List.iteri (fun i arg ->
@@ -107,6 +146,35 @@ let generate_code opt_flags size_flags fns =
                     in
 
                     build_call (get_fn (func_t ret) n) [|mem; retp|] "" bld;
+                    make_ret_store ret
+            end
+
+            | Instr.Apply (Instr.Value (v, args, ret)) -> begin
+                let call_fn_t = func_t ret in
+                let fn_val = build_inttoptr (generate_value v) (pointer_type call_fn_t) "" bld in
+
+                let mem = build_array_alloca int_t (const_int int_t (ret + (List.length args))) "" bld in
+
+                List.iteri (fun i arg ->
+                    let ep = build_gep mem [|const_int int_t i|] "" bld in
+                    ignore (build_store (generate_value arg) ep bld)
+                ) args;
+
+                if ret = 0 then
+                    ignore (build_call fn_val [|mem|] "" bld)
+                else
+                    let retp = build_gep mem [|const_int int_t (List.length args)|] "" bld in
+                    let rec make_ret_store retn =
+                        if retn = 0 then
+                            ()
+                        else begin
+                            let ep = build_gep retp [|const_int int_t (retn - 1)|] "" bld in
+                            stored_values := Values.add (next_value ()) (build_load ep "" bld) !stored_values;
+                            make_ret_store (retn - 1)
+                        end
+                    in
+
+                    build_call fn_val [|mem; retp|] "" bld;
                     make_ret_store ret
             end
             

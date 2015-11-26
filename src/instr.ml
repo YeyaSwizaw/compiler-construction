@@ -15,6 +15,8 @@ type binop_t =
     | Mul
     | Div
     | Eq
+    | Lt
+    | Gt
 
 type triop_t =
     | Ite
@@ -40,12 +42,16 @@ type value_source =
     | Arg of int
     | Stored of int
 
+type apply_t =
+    | Named of string * (value_source list) * int
+    | Value of value_source * (value_source list) * int
+
 (* Instruction types *)
 type instruction_t =
     | WriteConst of io_t * value_t
     | WriteStored of io_t * int
     | Store of value_source
-    | Apply of string * (value_source list) * int
+    | Apply of apply_t
     | Return of value_source list
 
 (* Env type *)
@@ -98,6 +104,8 @@ let string_of_binop = function
     | Mul -> "Mul"
     | Div -> "Div"
     | Eq -> "Eq"
+    | Lt -> "Lt"
+    | Gt -> "Gt"
 
 let string_of_triop = function
     | Ite -> "Ite"
@@ -122,13 +130,17 @@ let string_of_arg_list ls = begin
     Buffer.contents buf;
 end
 
+let string_of_apply = function
+    | Named (n, a, _) -> n ^ "[" ^ string_of_arg_list a ^ "]"
+    | Value (v, a, _) -> string_of_value_source v ^ "[" ^ string_of_arg_list a ^ "]"
+
 let string_of_instr = function
     | WriteConst (AsChar, v) -> "[Write[Char:" ^ string_of_value v ^ "]]"
     | WriteStored (AsChar, v) -> "[Write[Char:Stored[" ^ string_of_int v ^ "]]]"
     | WriteConst (AsInt, v) -> "[Write[Int:" ^ string_of_value v ^ "]]"
     | WriteStored (AsInt, v) -> "[Write[Int:Stored[" ^ string_of_int v ^ "]]]"
     | Store v -> "[Store " ^ string_of_value_source v ^ "]"
-    | Apply (n, v, _) -> "[Apply " ^ n ^ "[" ^ string_of_arg_list v ^ "]]"
+    | Apply a -> "[Apply " ^ string_of_apply a ^ "]"
     | Return v -> "[Return [" ^ string_of_arg_list v ^ "]]"
 
 let string_of_fn name fn = begin
@@ -168,6 +180,8 @@ let apply_binop values op x y = match (op, x, y) with
     | (Mul, Const (Int x), Const (Int y)) -> Const (Int (x * y)) :: values
     | (Div, Const (Int x), Const (Int y)) -> Const (Int (x / y)) :: values
     | (Eq, Const (Int x), Const (Int y)) -> Const (Int (if x = y then 1 else 0)) :: values
+    | (Lt, Const (Int x), Const (Int y)) -> Const (Int (if x < y then 1 else 0)) :: values
+    | (Gt, Const (Int x), Const (Int y)) -> Const (Int (if x > y then 1 else 0)) :: values
 
     | _ -> BinOp (op, x, y) :: values
 
@@ -202,6 +216,15 @@ let generate_instrs opt_flags code =
     let fn_envs = ref Fns.empty in
     let result = ref Fns.empty in
     let errors = ref [] in
+
+    let rec fn_type = function
+        | Const (Fn (Named n)) -> let fn = Fns.find n !result in Some (fn.args, fn.returns)
+        | TriOp (_, _, f1, f2) -> begin match (fn_type f1, fn_type f2) with
+            | (Some (a1, r1), Some (a2, r2)) -> if ((a1 = a2) & (r1 = r2)) then Some (a1, r1) else None
+            | _ -> None
+        end
+        | _ -> None
+    in
 
     let rec env_lookup env name values = 
         let rec local_lookup = function
@@ -273,6 +296,9 @@ let generate_instrs opt_flags code =
             | Syntax.Op Syntax.Times -> generate_function instrs (Const (Fn (BinOp Mul)) :: values) env stored code
             | Syntax.Op Syntax.Divide -> generate_function instrs (Const (Fn (BinOp Div)) :: values) env stored code
             | Syntax.Op Syntax.Eq -> generate_function instrs (Const (Fn (BinOp Eq)) :: values) env stored code
+            | Syntax.Op Syntax.Lt -> generate_function instrs (Const (Fn (BinOp Lt)) :: values) env stored code
+            | Syntax.Op Syntax.Gt -> generate_function instrs (Const (Fn (BinOp Gt)) :: values) env stored code
+
             | Syntax.Op Syntax.IfThenElse -> generate_function instrs (Const (Fn (TriOp Ite)) :: values) env stored code
 
             (* Application *)
@@ -321,7 +347,7 @@ let generate_instrs opt_flags code =
                     match pop_args fn.args rest with
                         | Some (args, rest) -> 
                             generate_function 
-                                (Apply (n, args, fn.returns) :: instrs) 
+                                (Apply (Named (n, args, fn.returns)) :: instrs) 
                                 (make_ret fn.returns stored rest) 
                                 env 
                                 (stored + fn.returns) 
@@ -335,7 +361,24 @@ let generate_instrs opt_flags code =
 
                 end
 
-                | _ -> generate_function (Apply ("", [], 0) :: instrs) values env stored code
+                | v :: rest -> begin match fn_type v with
+                    | Some (argc, retc) -> begin match pop_args argc rest with
+                        | Some (args, rest) ->
+                                generate_function
+                                    (Apply (Value (v, args, retc)) :: instrs)
+                                    (make_ret retc stored rest)
+                                    env
+                                    (stored + retc)
+                                    code
+
+                        | None -> begin
+                            errors := Errors.not_enough_args exp_block.Syntax.location :: !errors;
+                            generate_function instrs values env stored code
+                        end
+                    end
+
+                    | None -> generate_function instrs rest env stored code (* TODO *)
+                end
             end
 
             (* Read *)
