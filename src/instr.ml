@@ -229,18 +229,38 @@ let generate_instrs opt_flags code =
 
     let rec fn_type = function
         | Const (Fn (Named n)) -> let fn = Fns.find n !result in (Some fn.args, Some fn.returns)
-        | TriOp (_, _, f1, f2) -> begin match (fn_type f1, fn_type f2) with
+        | BinOp (_, _, _) -> (Some 2, Some 1)
+        | TriOp (Ite, _, f1, f2) -> begin match (fn_type f1, fn_type f2) with
             | ((a1, r1), (a2, r2)) -> ((if a1 = a2 then a1 else None), (if r1 = r2 then r1 else None))
         end
 
         | _ -> (None, None)
     in
 
-    let rec env_lookup env name values = 
+    let rec taint = function
+        | Const (Fn (Named n)) -> begin
+            let fn = Fns.find n !result in
+            let new_code = List.fold_right (fun i acc -> match i with
+                | Return rets -> (List.map (fun v -> Push v) rets) @ [Return []]
+                | Return [] -> [Return []]
+                | instr -> instr :: acc
+            ) fn.code [] in
+            result := Fns.add n { fn with code=new_code; tainted=true; returns=0; } !result
+        end
+
+        | TriOp (Ite, _, f1, f2) -> begin
+            taint f1;
+            taint f2;
+        end
+
+        | _ -> ()
+    in
+
+    let rec env_lookup recursed tainted env name values = 
         let rec local_lookup = function
             | [] -> None
             | `Int (n, i) :: tl -> if name = n then Some (Const (Int i) :: values) else local_lookup tl
-            | `Ident (n, i) :: tl -> if name = n then Some (env_lookup env i values) else local_lookup tl
+            | `Ident (n, i) :: tl -> if name = n then Some (env_lookup recursed tainted env i values) else local_lookup tl
             | `String (n, s) :: tl -> if name = n then Some (push_string values s) else local_lookup tl
             | `Fn (n, a, p) :: tl -> if name = n then begin
                 let fn_name = (make_env_name env) ^ "_" ^ name in
@@ -251,7 +271,7 @@ let generate_instrs opt_flags code =
                     Not_found -> begin
                         let fn_env = make_env ~parent:(Some env) ~name:(Some name) ~args:a p.Syntax.env in
                         fn_envs := Fns.add fn_name (fn_env, p.Syntax.code) !fn_envs;
-                        let (ret, taint, fn) = generate_function false [] [] fn_env 0 p.Syntax.code in
+                        let (ret, taint, fn) = generate_function recursed tainted [] [] fn_env 0 p.Syntax.code in
                         result := Fns.add fn_name { code=fn; args=(List.length a); returns=ret; tainted=taint; } !result;
                         Some (Const (Fn (Named fn_name)) :: values)
                     end
@@ -272,19 +292,31 @@ let generate_instrs opt_flags code =
 
                 (* Lookup in parent *)
                 | None -> begin match env.parent with
-                    | Some parent -> env_lookup parent name values
+                    | Some parent -> env_lookup recursed tainted parent name values
                     | None -> values (* TODO actual error *)
                 end
             end
 
-    and generate_function tainted instrs values env stored = function
-        | [] -> (List.length values, tainted, List.rev (Return values :: instrs))
+    and generate_function recursed tainted instrs values env stored = function
+        | [] -> if recursed || tainted then begin
+            let instrs = 
+                List.fold_right
+                    (fun v acc -> Push v :: acc)
+                    values
+                    instrs
+            in
+
+            (0, tainted, List.rev (Return [] :: instrs))
+        end else begin
+            (List.length values, tainted, List.rev (Return values :: instrs))
+        end
+                
 
         | exp_block :: code -> begin match exp_block.Syntax.data with
             (* Basic Values *)
-            | Syntax.Value (Syntax.Int i) -> generate_function tainted instrs (Const (Int i) :: values) env stored code
-            | Syntax.Value (Syntax.Char c) -> generate_function tainted instrs (Const (Int (int_of_char c)) :: values) env stored code
-            | Syntax.Value (Syntax.String s) -> generate_function tainted instrs (push_string values s) env stored code
+            | Syntax.Value (Syntax.Int i) -> generate_function recursed tainted instrs (Const (Int i) :: values) env stored code
+            | Syntax.Value (Syntax.Char c) -> generate_function recursed tainted instrs (Const (Int (int_of_char c)) :: values) env stored code
+            | Syntax.Value (Syntax.String s) -> generate_function recursed tainted instrs (push_string values s) env stored code
 
             (* Anonymous Functions *)
             | Syntax.Value (Syntax.Function (fn_args, fn_prog)) -> begin
@@ -292,45 +324,35 @@ let generate_instrs opt_flags code =
                 let fn_name = (make_env_name env) ^ "_anon_" ^ (string_of_int fn_id) in
                 let fn_env = make_env ~parent:(Some env) ~name:(Some ("anon_" ^ string_of_int fn_id)) ~args:fn_args fn_prog.Syntax.env in
                 fn_envs := Fns.add fn_name (fn_env, fn_prog.Syntax.code) !fn_envs;
-                let (ret, taint, fn) = generate_function false [] [] fn_env 0 fn_prog.Syntax.code in
+                let (ret, taint, fn) = generate_function recursed tainted [] [] fn_env 0 fn_prog.Syntax.code in
                 result := Fns.add fn_name { code=fn; args=(List.length fn_args); returns=ret; tainted=taint; } !result;
-                generate_function tainted instrs (Const (Fn (Named fn_name)) :: values) env stored code
+                generate_function recursed tainted instrs (Const (Fn (Named fn_name)) :: values) env stored code
             end
 
             (* Named Value *)
-            | Syntax.Value (Syntax.Ident n) -> generate_function tainted instrs (env_lookup env n values) env stored code
+            | Syntax.Value (Syntax.Ident n) -> generate_function recursed tainted instrs (env_lookup recursed tainted env n values) env stored code
 
             (* Binary Operators *)
-            | Syntax.Op Syntax.Plus -> generate_function tainted instrs (Const (Fn (BinOp Add)) :: values) env stored code
-            | Syntax.Op Syntax.Minus -> generate_function tainted instrs (Const (Fn (BinOp Sub)) :: values) env stored code
-            | Syntax.Op Syntax.Times -> generate_function tainted instrs (Const (Fn (BinOp Mul)) :: values) env stored code
-            | Syntax.Op Syntax.Divide -> generate_function tainted instrs (Const (Fn (BinOp Div)) :: values) env stored code
-            | Syntax.Op Syntax.Eq -> generate_function tainted instrs (Const (Fn (BinOp Eq)) :: values) env stored code
-            | Syntax.Op Syntax.Lt -> generate_function tainted instrs (Const (Fn (BinOp Lt)) :: values) env stored code
-            | Syntax.Op Syntax.Gt -> generate_function tainted instrs (Const (Fn (BinOp Gt)) :: values) env stored code
+            | Syntax.Op Syntax.Plus -> generate_function recursed tainted instrs (Const (Fn (BinOp Add)) :: values) env stored code
+            | Syntax.Op Syntax.Minus -> generate_function recursed tainted instrs (Const (Fn (BinOp Sub)) :: values) env stored code
+            | Syntax.Op Syntax.Times -> generate_function recursed tainted instrs (Const (Fn (BinOp Mul)) :: values) env stored code
+            | Syntax.Op Syntax.Divide -> generate_function recursed tainted instrs (Const (Fn (BinOp Div)) :: values) env stored code
+            | Syntax.Op Syntax.Eq -> generate_function recursed tainted instrs (Const (Fn (BinOp Eq)) :: values) env stored code
+            | Syntax.Op Syntax.Lt -> generate_function recursed tainted instrs (Const (Fn (BinOp Lt)) :: values) env stored code
+            | Syntax.Op Syntax.Gt -> generate_function recursed tainted instrs (Const (Fn (BinOp Gt)) :: values) env stored code
 
-            | Syntax.Op Syntax.IfThenElse -> generate_function tainted instrs (Const (Fn (TriOp Ite)) :: values) env stored code
+            | Syntax.Op Syntax.IfThenElse -> generate_function recursed tainted instrs (Const (Fn (TriOp Ite)) :: values) env stored code
 
             (* Application *)
             | Syntax.Apply Syntax.Full -> begin match values with
-                | Const (Fn (BinOp op)) :: rest -> begin match rest with
-                    | x :: y :: rest -> generate_function tainted instrs (apply_binop rest op x y) env stored code
-
-                    (* TODO *)
-                    | _ -> begin
-                        errors := Errors.not_enough_args exp_block.Syntax.location :: !errors;
-                        generate_function tainted instrs values env stored code
-                    end
+                | Const (Fn (BinOp op)) :: rest -> begin 
+                    let (stack_args, [x; y], rest) = pop_args 2 rest in
+                    generate_function recursed tainted instrs (apply_binop rest op x y) env stored code
                 end
 
-                | Const (Fn (TriOp op)) :: rest -> begin match rest with
-                    | x :: y :: z :: rest -> generate_function tainted instrs (apply_triop rest op x y z) env stored code
-
-                    (* TODO *)
-                    | _ -> begin
-                        errors := Errors.not_enough_args exp_block.Syntax.location :: !errors;
-                        generate_function tainted instrs values env stored code
-                    end
+                | Const (Fn (TriOp op)) :: rest -> begin
+                    let (stack_args, [x; y; z], rest) = pop_args 3 rest in
+                    generate_function recursed tainted instrs (apply_triop rest op x y z) env stored code
                 end
 
                 | Const (Fn (Named n)) :: rest -> if opt_flags.Flag.fe then begin
@@ -340,6 +362,7 @@ let generate_instrs opt_flags code =
                     let (stored, values) = arg_values stored args in
 
                     generate_function 
+                        recursed 
                         tainted
                         (arg_instrs instrs args)
                         rest
@@ -367,6 +390,7 @@ let generate_instrs opt_flags code =
                         in
 
                         generate_function 
+                            recursed 
                             tainted
                             (Apply (Named (n, args, fn.returns)) :: instrs) 
                             (make_ret fn.returns stored (if tainted then [] else rest)) 
@@ -389,7 +413,8 @@ let generate_instrs opt_flags code =
                                 instrs
                             in
 
-                            generate_function 
+                            generate_function
+                                true
                                 tainted 
                                 (Apply (Recurse (n, args)) :: instrs) 
                                 (if tainted then [] else rest) 
@@ -401,7 +426,7 @@ let generate_instrs opt_flags code =
 
                 | v :: rest -> begin match fn_type v with
                     (* Known argument count *)
-                    | (Some argc, retc) -> begin 
+                    | (Some argc, Some retc) -> begin 
                         let (stack_args, args, rest) = pop_args argc rest in
                         let instrs = List.fold_right
                             (fun v acc -> Push v :: acc)
@@ -409,43 +434,65 @@ let generate_instrs opt_flags code =
                             instrs
                         in
                             
-                        generate_function
+                        generate_function 
+                            recursed
                             true
-                            (Apply (Value (v, args, retc)) :: instrs) 
-                            (match retc with | Some n -> make_ret n stored [] | None -> [])
+                            (Apply (Value (v, args, Some retc)) :: instrs) 
+                            (make_ret retc stored rest)
                             env
-                            (stored + (match retc with | Some n -> n | None -> 0))
+                            (stored + retc)
+                            code
+                    end
+
+                    | (Some argc, None) -> begin 
+                        let (stack_args, args, rest) = pop_args argc rest in
+                        let instrs = List.fold_right
+                            (fun v acc -> Push v :: acc)
+                            rest
+                            instrs
+                        in
+
+                        taint v;
+                        generate_function 
+                            recursed
+                            true
+                            (Apply (Value (v, args, None)) :: instrs) 
+                            []
+                            env
+                            stored
                             code
                     end
                 end
             end
 
             (* Read *)
-            | Syntax.Read Syntax.AsChar -> generate_function tainted instrs (Read AsChar :: values) env stored code
-            | Syntax.Read Syntax.AsInt -> generate_function tainted instrs (Read AsInt :: values) env stored code
+            | Syntax.Read Syntax.AsChar -> generate_function recursed tainted instrs (Read AsChar :: values) env stored code
+            | Syntax.Read Syntax.AsInt -> generate_function recursed tainted instrs (Read AsInt :: values) env stored code
 
             (* Write *)
             | Syntax.Write Syntax.AsChar -> begin match values with
-                | Const value :: _ -> generate_function tainted (WriteConst (AsChar, value) :: instrs) values env stored code
-                | Stored n :: _ -> generate_function tainted (WriteStored (AsChar, n) :: instrs) values env stored code
-                | value :: rest -> generate_function tainted (WriteStored (AsChar, stored) :: Store value :: instrs) (Stored stored :: rest) env (stored + 1) code
+                | Const value :: _ -> generate_function recursed tainted (WriteConst (AsChar, value) :: instrs) values env stored code
+                | Stored n :: _ -> generate_function recursed tainted (WriteStored (AsChar, n) :: instrs) values env stored code
+                | value :: rest -> generate_function recursed tainted (WriteStored (AsChar, stored) :: Store value :: instrs) (Stored stored :: rest) env (stored + 1) code
+                | [] -> generate_function recursed true (WriteStored (AsChar, stored) :: Store Pop :: instrs) [Stored stored] env (stored + 1) code
             end
 
             | Syntax.Write Syntax.AsInt -> begin match values with
-                | Const value :: _ -> generate_function tainted (WriteConst (AsInt, value) :: instrs) values env stored code
-                | Stored n :: _ -> generate_function tainted (WriteStored (AsInt, n) :: instrs) values env stored code
-                | value :: rest -> generate_function tainted (WriteStored (AsInt, stored) :: Store value :: instrs) (Stored stored :: rest) env (stored + 1) code
+                | Const value :: _ -> generate_function recursed tainted (WriteConst (AsInt, value) :: instrs) values env stored code
+                | Stored n :: _ -> generate_function recursed tainted (WriteStored (AsInt, n) :: instrs) values env stored code
+                | value :: rest -> generate_function recursed tainted (WriteStored (AsInt, stored) :: Store value :: instrs) (Stored stored :: rest) env (stored + 1) code
+                | [] -> generate_function recursed true (WriteStored (AsInt, stored) :: Store Pop :: instrs) [Stored stored] env (stored + 1) code
             end
 
             (* Pop Environment *)
             | Syntax.PopEnv -> begin match env.parent with
-                | Some parent -> generate_function tainted instrs values parent stored code
-                | None -> generate_function tainted instrs values env stored code
+                | Some parent -> generate_function recursed tainted instrs values parent stored code
+                | None -> generate_function recursed tainted instrs values env stored code
             end
         end
     in
 
-    let (_, tainted, fn) = generate_function false [] [] (make_env code.Syntax.env) 0 code.Syntax.code in
+    let (_, tainted, fn) = generate_function false false [] [] (make_env code.Syntax.env) 0 code.Syntax.code in
 
     if !errors = [] then
         Errors.Ok (Fns.add "" { code=fn; args=0; returns=0; tainted=tainted; } !result)
