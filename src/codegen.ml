@@ -36,17 +36,51 @@ let generate_code opt_flags size_flags fns =
     let get_fn_getchar () = get_fn (function_type int_t [||]) "getchar" in
     let get_fn_printf () = get_fn (var_arg_function_type void_t [|pointer_type (integer_type ctx 8)|]) "printf" in
 
-    let format_str = define_global "" (const_stringz ctx "%d") mdl in
+    let format_str = define_global "format_str" (const_stringz ctx "%d") mdl in
+    set_global_constant true format_str;
+
+    let stack = let v = ref None in (fun () -> begin match !v with
+        | None -> begin
+            let stack = define_global "stack" (const_array int_t (Array.make 512 (undef int_t))) mdl in
+            v := (Some stack);
+            stack
+        end
+
+        | Some va -> va
+    end) in
+
+    let stack_count = let v = ref None in (fun () -> begin match !v with
+        | None -> begin
+            let va = define_global "stack_count" (const_int int_t 0) mdl in
+            v := (Some va);
+            va
+        end
+
+        | Some va -> va
+    end) in
 
     (* Codegen *)
     let generate_function name code = 
         let fn_t = if name = "main" then main_t else (func_t code.Instr.returns) in
         let code_fn = get_fn fn_t name in
-        let block = append_block ctx "entry" code_fn in
 
-        set_function_call_conv (if name = "main" then CallConv.c else CallConv.fast) code_fn;
-        set_linkage (if name = "main" then (linkage code_fn) else Linkage.Internal) code_fn;
+        let block = append_block ctx "entry" code_fn in
         position_at_end block bld;
+
+        if name = "main" then begin
+            ()
+        end else begin
+            set_function_call_conv CallConv.fast code_fn;
+            set_linkage Linkage.Internal code_fn;
+        end;
+
+        (*
+        let stack_pos_ptr = stack_count () in
+        let stack_pos = build_load stack_pos_ptr "stack_pos" bld in
+        let stack_ptr = build_in_bounds_gep (stack ()) [|const_int int_t 0; stack_pos|] "stack_ptr" bld in
+        build_store (const_int int_t 15) stack_ptr bld;
+        build_store (build_add stack_pos (const_int int_t 1) "new_pos" bld) stack_pos_ptr bld;
+        *)
 
         let next_value = let next = ref 0 in (fun () -> next := !next + 1; !next - 1) in
         let stored_values = ref Values.empty in
@@ -61,35 +95,35 @@ let generate_code opt_flags size_flags fns =
             end
 
             | Instr.Stored n -> Values.find n !stored_values
-            | Instr.Read Instr.AsChar -> build_call (get_fn_getchar ()) [||] "" bld
+            | Instr.Read Instr.AsChar -> build_call (get_fn_getchar ()) [||] "input" bld
 
             | Instr.BinOp (op, x, y) -> begin
                 let x_v = generate_value x in
                 let y_v = generate_value y in
                 match op with
-                    | Instr.Add -> build_add x_v y_v "" bld
-                    | Instr.Sub -> build_sub x_v y_v "" bld
-                    | Instr.Mul -> build_mul x_v y_v "" bld
-                    | Instr.Div -> build_sdiv x_v y_v "" bld
+                    | Instr.Add -> build_add x_v y_v "add_result" bld
+                    | Instr.Sub -> build_sub x_v y_v "sub_result" bld
+                    | Instr.Mul -> build_mul x_v y_v "mul_result" bld
+                    | Instr.Div -> build_sdiv x_v y_v "div_result" bld
 
                     | Instr.Eq -> 
-                        let cmp = build_icmp Icmp.Eq x_v y_v "" bld in
+                        let cmp = build_icmp Icmp.Eq x_v y_v "eq_result" bld in
                         build_intcast cmp int_t "" bld
 
                     | Instr.Lt -> 
-                        let cmp = build_icmp Icmp.Slt x_v y_v "" bld in
+                        let cmp = build_icmp Icmp.Slt x_v y_v "lt_result" bld in
                         build_intcast cmp int_t "" bld
 
                     | Instr.Gt -> 
-                        let cmp = build_icmp Icmp.Sgt x_v y_v "" bld in
+                        let cmp = build_icmp Icmp.Sgt x_v y_v "gt_result" bld in
                         build_intcast cmp int_t "" bld
             end
 
             | Instr.TriOp (op, q, x, y) -> begin
-                let cmp = build_icmp Icmp.Ne (generate_value q) (const_int int_t 0) "" bld in
+                let cmp = build_icmp Icmp.Ne (generate_value q) (const_int int_t 0) "ite_check" bld in
                 let then_b = append_block ctx "true_case" code_fn in
                 let else_b = append_block ctx "false_case" code_fn in
-                let join_b = append_block ctx "join_if" code_fn in
+                let join_b = append_block ctx "join_ite" code_fn in
 
                 build_cond_br cmp then_b else_b bld;
 
@@ -102,13 +136,21 @@ let generate_code opt_flags size_flags fns =
                 build_br join_b bld;
 
                 position_at_end join_b bld;
-                build_phi [then_v, then_b; else_v, else_b] "" bld
+                build_phi [then_v, then_b; else_v, else_b] "ite_result" bld
             end
 
             | Instr.Arg n -> begin
                 let args = param code_fn 0 in
-                let ep = build_gep args [|const_int int_t n|] "" bld in
-                build_load ep "" bld
+                let ep = build_gep args [|const_int int_t n|] ("arg_" ^ string_of_int n ^ "_ptr") bld in
+                build_load ep ("arg_" ^ string_of_int n) bld
+            end
+
+            | Instr.Pop -> begin
+                let stack_pos_ptr = stack_count () in
+                let stack_pos = build_sub (build_load stack_pos_ptr "stack_pos" bld) (const_int int_t 1) "new_pos" bld in
+                let stack_ptr = build_in_bounds_gep (stack ()) [|const_int int_t 0; stack_pos|] "stack_ptr" bld in
+                build_store stack_pos stack_pos_ptr bld;
+                build_load stack_ptr "popped_value" bld
             end
         in
 
@@ -125,8 +167,8 @@ let generate_code opt_flags size_flags fns =
 
             | Instr.WriteStored (Instr.AsInt, n) -> begin
                 let value = generate_value (Instr.Stored n) in
-                let sp = build_gep format_str [|const_int int_t 0|] "" bld in
-                let spp = build_bitcast sp (pointer_type (integer_type ctx 8)) "" bld in
+                let sp = build_gep format_str [|const_int int_t 0|] "write_ptr" bld in
+                let spp = build_bitcast sp (pointer_type (integer_type ctx 8)) "write_val" bld in
                 ignore (build_call (get_fn_printf ()) [|spp; value|] "" bld)
             end
 
@@ -136,23 +178,23 @@ let generate_code opt_flags size_flags fns =
             end
 
             | Instr.Apply (Instr.Named (n, args, ret)) -> begin
-                let mem = build_array_alloca int_t (const_int int_t (List.length args)) "" bld in
+                let mem = build_array_alloca int_t (const_int int_t (List.length args)) "arg_array" bld in
 
                 List.iteri (fun i arg ->
-                    let ep = build_gep mem [|const_int int_t i|] "" bld in
+                    let ep = build_gep mem [|const_int int_t i|] ("arg_" ^ string_of_int i ^ "_ptr") bld in
                     ignore (build_store (generate_value arg) ep bld)
                 ) args;
 
                 if ret = 0 then
                     ignore (build_call (get_fn (func_t ret) n) [|mem|] "" bld)
                 else
-                    let retobj = build_call (get_fn (func_t ret) n) [|mem|] "" bld in
+                    let retobj = build_call (get_fn (func_t ret) n) [|mem|] "call_result" bld in
 
                     let rec make_ret_store retn =
                         if retn = 0 then
                             ()
                         else begin
-                            stored_values := Values.add (next_value ()) (build_extractvalue retobj (retn - 1) "" bld) !stored_values;
+                            stored_values := Values.add (next_value ()) (build_extractvalue retobj (retn - 1) "ret_value" bld) !stored_values;
                             make_ret_store (retn - 1)
                         end
                     in
@@ -162,12 +204,12 @@ let generate_code opt_flags size_flags fns =
 
             | Instr.Apply (Instr.Value (v, args, ret)) -> begin
                 let call_fn_t = func_t (match ret with | None -> 0 | Some n -> n) in
-                let fn_val = build_inttoptr (generate_value v) (pointer_type call_fn_t) "" bld in
+                let fn_val = build_inttoptr (generate_value v) (pointer_type call_fn_t) "fn_val" bld in
 
-                let mem = build_array_alloca int_t (const_int int_t (List.length args)) "" bld in
+                let mem = build_array_alloca int_t (const_int int_t (List.length args)) "arg_array" bld in
 
                 List.iteri (fun i arg ->
-                    let ep = build_gep mem [|const_int int_t i|] "" bld in
+                    let ep = build_gep mem [|const_int int_t i|] ("arg_" ^ string_of_int i ^ "_ptr") bld in
                     ignore (build_store (generate_value arg) ep bld)
                 ) args;
 
@@ -175,13 +217,13 @@ let generate_code opt_flags size_flags fns =
                     | None | Some 0 -> ignore (build_call fn_val [|mem|] "" bld)
 
                     | Some n -> begin
-                        let retobj = build_call fn_val [|mem|] "" bld in
+                        let retobj = build_call fn_val [|mem|] "call_result" bld in
 
                         let rec make_ret_store retn =
                             if retn = 0 then
                                 ()
                             else begin
-                                stored_values := Values.add (next_value ()) (build_extractvalue retobj (retn - 1) "" bld) !stored_values;
+                                stored_values := Values.add (next_value ()) (build_extractvalue retobj (retn - 1) "ret_value" bld) !stored_values;
                                 make_ret_store (retn - 1)
                             end
                         in
@@ -191,18 +233,30 @@ let generate_code opt_flags size_flags fns =
             end
 
             | Instr.Apply (Instr.Recurse (n, args)) -> begin
-                let mem = build_array_alloca int_t (const_int int_t (List.length args)) "" bld in
+                let mem = build_array_alloca int_t (const_int int_t (List.length args)) "arg_array" bld in
 
                 List.iteri (fun i arg ->
-                    let ep = build_gep mem [|const_int int_t i|] "" bld in
+                    let ep = build_gep mem [|const_int int_t i|] ("arg_" ^ string_of_int i ^ "_ptr") bld in
                     ignore (build_store (generate_value arg) ep bld)
                 ) args;
 
                 ignore (build_call (get_fn (func_t 0) n) [|mem|] "" bld)
             end
 
+            | Instr.Push v -> begin
+                let value = generate_value v in
+                let stack_pos_ptr = stack_count () in
+                let stack_pos = build_load stack_pos_ptr "stack_pos" bld in
+                let stack_ptr = build_in_bounds_gep (stack ()) [|const_int int_t 0; stack_pos|] "stack_ptr" bld in
+                build_store value stack_ptr bld;
+                ignore (build_store (build_add stack_pos (const_int int_t 1) "new_pos" bld) stack_pos_ptr bld);
+            end
+
             | Instr.Return [] ->
-                ignore (build_ret_void bld)
+                if not (name = "main") then begin
+                    ignore (build_ret_void bld)
+                end else
+                    ()
             
             | Instr.Return ret -> begin
                 if not (name = "main") then begin
