@@ -45,6 +45,15 @@ env: {String x Value}
 	=> <C | E | T | S | I | (Fn(3, 1, false), op) :: V | K | R>
 ```
 
+##Output:
+```
+<Write :: C | E | T | S | I | (U, v) :: V | K | R>
+	=> <C | E | T | S + 1 | Write(Stored(S)) :: Store(v) :: I | (U, Stored(S)) :: V | K | R>
+	
+<Write :: C | E | T | S | I | [] | K | R>
+	=> <C | E | true | S + 1 | Write(Stored(S)) :: Store(Pop) :: I | (U, Stored(S)) :: V | K | R>
+```
+
 ##Function Pushing:
 ```
 <Fn(f, [a_1, ..., a_n], _) :: C | E | T | S | I | V | K | (f, FN, FT, _) ∈ R>
@@ -92,8 +101,8 @@ env: {String x Value}
 
 ##Stack Arguments:
 ```
-<Apply :: C | E | T | S | I | (Fn(n, _), f) :: (_, a_1) :: ... :: (_, a_(m < n)) :: V | K | R>
-	=> <C | E | true | S | I | (Fn(n, _), f) :: (_, a_1) :: ... :: (_, a_(m < n)) :: (-, Pop) :: V | K | R>
+<Apply :: C | E | T | S | I | (Fn(n, _), f) :: (_, a_1) :: ... :: (_, a_(m < n)) :: [] | K | R>
+	=> <C | E | true | S | I | (Fn(n, _), f) :: (_, a_1) :: ... :: (_, a_(m < n)) :: (-, Pop) :: [] | K | R>
 ```
 
 ##Function Return:
@@ -116,69 +125,74 @@ add: y -> {
 	y + ()
 }
 
-2 8 add ()
+2 8 add () ,
 ```
 
 Here is the initial state of the machine:
 ```
-<2 8 add () | (add, ..) | false | 0 | [] | [] | [] | {}>
+<2 8 add () , | (add, ..) | false | 0 | [] | [] | [] | {}>
 ```
 
 
 First, we push the two integers to the value stack:
 ```
-<8 add () | (add, ..) | false | 0 | [] | (Int 2) | [] | {}>
-<add () | (add, ..) | false | 0 | [] | (Int 8) (Int 2) | [] | {}>
+<8 add () , | (add, ..) | false | 0 | [] | (Int 2) | [] | {}>
+<add () , | (add, ..) | false | 0 | [] | (Int 8) (Int 2) | [] | {}>
 ```
 
 Then, we lookup add in the environment:
 ```
-<Fn(add, [y], ..) () | (add, ..) | false | 0 | [] | (Int 8) (Int 2) | [] | {}>
+<Fn(add, [y], ..) () , | (add, ..) | false | 0 | [] | (Int 8) (Int 2) | [] | {}>
 ```
 
 We save the state on the continuation stack, and evaluate the function:
 ```
-<y + () | (y, Arg(0)) (add, ..) | false | 0 | [] | [] | <Fn(add, [y], ..) () | false | (add, ..) | [] | (Int 8) (Int 2)> | {}>
+<y + () | (y, Arg(0)) (add, ..) | false | 0 | [] | [] | <Fn(add, [y], ..) () , | false | (add, ..) | [] | (Int 8) (Int 2)> | {}>
 ```
 
 Lookup y in the environment:
 ```
-<Arg(0) + () | (y, Arg(0)) (add, ..) | false | 0 | [] | [] | <Fn(add, [y], ..) () | false | (add, ..) | [] | (Int 8) (Int 2)> | {}>
+<Arg(0) + () | (y, Arg(0)) (add, ..) | false | 0 | [] | [] | <Fn(add, [y], ..) () , | false | (add, ..) | [] | (Int 8) (Int 2)> | {}>
 ```
 
 Push the argument to the value stack:
 ```
-<+ () | (y, Arg(0)) (add, ..) | false | 0 | [] | (-, Arg(0)) | <Fn(add, [y], ..) () | false | (add, ..) | [] | (Int 8) (Int 2)> | {}>
+<+ () | (y, Arg(0)) (add, ..) | false | 0 | [] | (-, Arg(0)) | <Fn(add, [y], ..) () , | false | (add, ..) | [] | (Int 8) (Int 2)> | {}>
 ```
 
 Push the addition operator to the value stack:
 ```
-<() | (y, Arg(0)) (add, ..) | false | 0 | [] | Fn((2, 1, false), +) (-, Arg(0)) | <Fn(add, [y], ..) () | false | (add, ..) | [] | (Int 8) (Int 2)> | {}>
+<() | (y, Arg(0)) (add, ..) | false | 0 | [] | Fn((2, 1, false), +) (-, Arg(0)) | <Fn(add, [y], ..) () , | false | (add, ..) | [] | (Int 8) (Int 2)> | {}>
 ```
 
 Add a pop argument to the value stack - this function in now tainted:
 ```
-<() | (y, Arg(0)) (add, ..) | true | 0 | [] | Fn((2, 1, false), +) (-, Arg(0)) (-, Pop) | <Fn(add, [y], ..) () | false | (add, ..) | [] | (Int 8) (Int 2)> | {}>
+<() | (y, Arg(0)) (add, ..) | true | 0 | [] | Fn((2, 1, false), +) (-, Arg(0)) (-, Pop) | <Fn(add, [y], ..) () , | false | (add, ..) | [] | (Int 8) (Int 2)> | {}>
 ```
 
 Apply the addition function:
 ```
-< | (y, Arg(0)) (add, ..) | true | 0 | [] | (Int, Arg(0) + Pop) | <Fn(add, [y], ..) () | false | (add, ..) | [] | (Int 8) (Int 2)> | {}>
+< | (y, Arg(0)) (add, ..) | true | 0 | [] | (Int, Arg(0) + Pop) | <Fn(add, [y], ..) () , | false | (add, ..) | [] | (Int 8) (Int 2)> | {}>
 ```
 
 Pop the top of the continuation stack, and insert the function into the result set:
 ```
-<() | (add, ..) | false | 0 | [] | (Fn(1, 1, true), add) (Int 8) (Int 2) | [] | {(add, 2, true, Return([Arg(0) + Pop]))}>
+<() , | (add, ..) | false | 0 | [] | (Fn(1, 1, true), add) (Int 8) (Int 2) | [] | {(add, 2, true, Return([Arg(0) + Pop]))}>
 ```
 
 Apply the function, pushing values to the stack as it is tainted:
 ```
-< | (add, ..) | true | 1 | Apply(add, [8]) Push(2) | (-, Stored(1)) | [] | {(add, 2, true, Return([Arg(0) + Pop]))}>
+<, | (add, ..) | true | 1 | Apply(add, [8]) Push(2) | (-, Stored(0)) | [] | {(add, 2, true, Return([Arg(0) + Pop]))}>
+```
+
+Apply the write instruction:
+```
+< | (add, ..) | true | 2 | Write(Stored(1)) Store(Stored(0)) Apply(add, [8]) Push(2) | (-, Stored(1)) | [] | | {(add, 2, true, Return([Arg(0) + Pop]))}>
 ```
 
 Done! The resulting instructions are as follows:
 ```
-Push(2); Apply(add, [8]);
+Push(2); Apply(add, [8]); Store(Stored(0)); Write(Stored(1));
 add: Return([Arg(0) + Pop]);
 ```
 
@@ -187,6 +201,7 @@ Translated into a C like language, this would be:
 main() {
 	push(2);
 	val = add(8);
+	write(val);
 }
 
 add(x) {
