@@ -109,6 +109,14 @@ Otherwise:
 
 <Apply :: C | E | T | A | P | S | I | (Fn(n, -1, _, false), f) :: (_, a_1) :: ... :: (_, a_n) :: (_, v_0) :: ... :: (_, v_m) :: [] | K | U | R> 	
 	=> <C | E | true | A | P | S | Apply(f, [a_1 ... a_n]) :: Push(v_0) :: ... :: Push(v_m) :: I | [] | K | U | R>
+	
+Allocate arguments and fix functions:
+<Apply :: C | E | T | A | P | S | I | (Fn(n, -1, _, true), f) :: (t_1, a_1) :: ... :: (t_n, a_n) :: (_, v_0) :: ... :: (_, v_m) :: [] | K | U | R>
+	=> <C | E | true | A | true | S | Apply(f, [t_1 == Fn(..) ? Alloc(a_1) : a_1, ...]) :: Push(v_0) :: ... :: Push(v_m) :: I | [] | K | U | {(f, -1, b, true, Push(x_0) :: ... Push(x_1) :: FNI) | i <- 1 .. n && f <- a_i && (f, n > 0, b, false | Return([x_0, ..., x_1] :: FNI) ∈ R} ∪ R>
+	
+Apply dynamic function:
+<Apply :: C | E | T | A | P | S | I | (_, f) :: (_, v_0) :: ... (_, v_n) :: [] | K | U | R>
+	=> <C | E | true | true | true | S | Apply(f, Dynamic) :: Push(v_0) :: ... :: Push(v_n) :: I | [] | K | U | R>
 
 #TODO: false, true / true, true
 ```
@@ -394,5 +402,110 @@ anon1(x) {
 	push(x);
 	f(x - 1);
 	push(pop() * pop());
+}
+```
+
+#Futher example
+Given the program
+
+```
+double: x -> {
+	x x + ()
+}
+
+apply: f -> x -> {
+	x f ()
+}
+
+5 double apply () ,
+```
+
+The initial state is:
+
+```
+<5 double apply () , | {(double, ..) (apply, ..)} | false | false | false | 0 | [] | [] | [] | {} | {}>
+```
+
+First, we push 5:
+```
+<double apply () , | {(double, ..) (apply, ..)} | false | false | false | 0 | [] | (Int, 5) | [] | {} | {}>
+```
+
+Lookup double:
+```
+<Fn(double, [x], ..) apply () , | {(double, ..) (apply, ..)} | false | false | false | 0 | [] | (Int, 5) | [] | {} | {}>
+```
+
+Save the state and evaluate double (process shortened):
+```
+<x x + () | {(x, Arg(0)) (double, ..) (apply, ..)} | false | false | false | 0 | [] | [] | <Fn(double, [x], ..) apply () , | false | false | false | {(double, ..) (apply, ..)} | [] | (Int, 5)> | {(double, 1)} | {}>
+
+< | {(x, Arg(0)) (double, ..) (apply, ..)} | false | false | false | 0 | [] | (Int, Arg(0) + (Arg(0)) | <Fn(double, [x], ..) apply () , | false | false | false | {(double, ..) (apply, ..)} | [] | (Int, 5)> | {(double, 1)} | {}>
+
+<apply () , | {(double, ..) (apply, ..)} | false | false | false | 0 | [] | (Fn(1, 1, false, false), double) (Int, 5) | {(double, 1)} | {(double, 1, false, false, Return([Arg(0) + (Arg(0)]))}> 
+```
+
+Lookup apply:
+```
+<Fn(apply, [f, x], ..) () , | {(double, ..) (apply, ..)} | false | false | false | 0 | [] | (Fn(1, 1, false, false), double) (Int, 5) | {(double, 1)} | {(double, 1, false, false, Return([Arg(0) + (Arg(0)]))}> 
+```
+
+Save the state to evaluate apply:
+```
+<x f () | {(x, Arg(1)) (f, Arg(0)) (double, ..) (apply, ..)} | false | false | false | 0 | [] | [] | <Fn(apply, [f, x], ..) () , | false | false | false | {(double, ..) (apply, ..)} | [] | (Fn(1, 1, false, false), double) (Int, 5)> {(apply, 2) (double, 1) | {(double, 1, false, false, Return([Arg(0) + (Arg(0)]))}>
+```
+
+Lookup and push x and f (shortened):
+```
+<() | {(x, Arg(1)) (f, Arg(0)) (double, ..) (apply, ..)} | false | false | false | 0 | [] | (-, Arg(0)) (-, Arg(1)) | <Fn(apply, [f, x], ..) () , | false | false | false | {(double, ..) (apply, ..)} | [] | (Fn(1, 1, false, false), double) (Int, 5)> {(apply, 2) (double, 1) | {(double, Return([Arg(0) + (Arg(0)]))}>
+```
+
+Apply f, which means the function requires this arguments information allocated:
+```
+< | {(x, Arg(1)) (f, Arg(0)) (double, ..) (apply, ..)} | true | true | true | 0 | Apply(Arg(0), Dynamic) Push(Arg(1)) | [] | <Fn(apply, [f, x], ..) () , | false | false | false | {(double, ..) (apply, ..)} | [] | (Fn(1, 1, false, false), double) (Int, 5)> {(apply, 2) (double, 1) | {(double, 1, false, false, Return([Arg(0) + (Arg(0)]))}>
+```
+
+Save apply and pop the state
+```
+<() , | {(double, ..) (apply, ..)} | false | false | true | 0 | [] | (Fn(2, -1, true, true), apply) (Fn(1, 1, false, false), double) (Int, 5) | [] {(apply, 2) (double, 1)} | {(apply, 0, true, true, Apply(Arg(0), Dynamic) Push(Arg(1))) (double, 1, false, false, Return([Arg(0) + (Arg(0)]))}> 
+```
+
+Apply apply - this requires arguments to be allocating, and a version of double creating that pushes values instead of returns:
+```
+<, | {(double, ..) (apply, ..)} | true | false | true | 0 | Apply(apply, [Alloc(double), 5]) | [] | {(apply, 2) (double, 1)} | {(double, -1, false, true, Push(Arg(0) + Arg(0))) (apply, 0, true, true, Apply(Arg(0), Dynamic) Push(Arg(1))) (double, 1, false, false, Return([Arg(0) + (Arg(0)]))}>
+```
+
+Finally, apply the write instruction:
+```
+< | {(double, ..) (apply, ..)} | true | false | true | 0 | Write(Stored(0)) Store(Pop) Apply(apply, [Alloc(double), 5]) | Stored(0) | {(apply, 2) (double, 1)} | {(double, -1, false, true, Push(Arg(0) + Arg(0))) (apply, 0, true, true, Apply(Arg(0), Dynamic) Push(Arg(1))) (double, 1, false, false, Return([Arg(0) + (Arg(0)]))}>
+```
+
+And done! The final instructions are:
+```
+Apply(apply, [Alloc(double), 5]); Store(Pop); Write(Stored(0));
+double_1: Push(Arg(0) + Arg(0));
+apply: Push(Arg(1)); Apply(Arg(0));
+```
+
+Which converted would be similar to:
+```
+main() {
+	f = [double_1; 1];
+	apply(f, 5);
+	val = pop();
+	write(val);
+}
+
+double_1(x) {
+	push(x + x);
+}
+
+apply(f, x) {
+	push(x);
+	args = [];
+	for _ in 0 .. f[1] {
+		args.push(pop());
+	}
+	f[0](args);
 }
 ```
