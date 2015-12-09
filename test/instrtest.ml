@@ -5,7 +5,7 @@ open Instr
 open Errors
 open Lexing
 
-let instr_test ?(fe=true) ?(cf=true) code output =
+let instr_test ?(fe=false) code output =
     let fail_f res exp () = 
         "    Input: " ^ code 
         ^ "\n    Expected: " ^ (match exp with
@@ -30,7 +30,6 @@ let instr_test ?(fe=true) ?(cf=true) code output =
 
         let opt_flags = {
             Flag.default_opt_flags with
-                Flag.cf = cf;
                 Flag.fe = fe;
         } in
 
@@ -38,6 +37,7 @@ let instr_test ?(fe=true) ?(cf=true) code output =
             | Ok(()) -> ()
             | Err(errs) -> result := Err (map (fun err -> match err with
                 | NotImplemented p
+                | NotEnoughArgs p
                 | UndefinedName (_, p)
                 | RedefinedName (_, _, p)
                 | UnterminatedLBrace p
@@ -58,74 +58,50 @@ let instr_test ?(fe=true) ?(cf=true) code output =
 
 let run () = 
     let tests = [
-        instr_test "1" (Ok ":[0]:Push[Int[1]]\n");
-        instr_test "\"hello\"" (Ok ":[0]:Push[Int[104]]Push[Int[101]]Push[Int[108]]Push[Int[108]]Push[Int[111]]\n");
-        instr_test "'\\n'" (Ok ":[0]:Push[Int[10]]\n");
+        instr_test "1" (Ok ":0:[Return [1]]\n");
+        instr_test "\"hello\"" (Ok ":0:[Return [104:101:108:108:111]]\n");
+        instr_test "'\\n'" (Ok ":0:[Return [10]]\n");
 
-        instr_test "+" (Ok ":[0]:Push[Fn[+]]\n");
-        instr_test "-" (Ok ":[0]:Push[Fn[-]]\n");
-        instr_test "*" (Ok ":[0]:Push[Fn[*]]\n");
-        instr_test "/" (Ok ":[0]:Push[Fn[/]]\n");
-        instr_test "=" (Ok ":[0]:Push[Fn[=]]\n");
-        instr_test ">" (Ok ":[0]:Push[Fn[>]]\n");
-        instr_test "<" (Ok ":[0]:Push[Fn[<]]\n");
+        instr_test "+" (Ok ":0:[Return [Add]]\n");
+        instr_test "-" (Ok ":0:[Return [Sub]]\n");
+        instr_test "*" (Ok ":0:[Return [Mul]]\n");
+        instr_test "/" (Ok ":0:[Return [Div]]\n");
+        instr_test "=" (Ok ":0:[Return [Eq]]\n");
+        instr_test ">" (Ok ":0:[Return [Gt]]\n");
+        instr_test "<" (Ok ":0:[Return [Lt]]\n");
 
-        instr_test "()" (Ok ":[0]:Apply[]\n");
-
-        instr_test "num\nnum: 7" (Ok ":[0]:Push[Int[7]]\n");
+        instr_test "num\nnum: 7" (Ok ":0:[Return [7]]\n");
 
         (* Simple constant folding *)
-        instr_test "2 9 +" (Ok ":[0]:Push[Fn[+]]Push[Int[9]]Push[Int[2]]\n");
-        instr_test "2 9 + ()" (Ok ":[0]:Push[Int[11]]\n");
-        instr_test "14 13 * ()" (Ok ":[0]:Push[Int[182]]\n");
-        instr_test "2 6 / ()" (Ok ":[0]:Push[Int[3]]\n");
-        instr_test "6 1 - ()" (Ok ":[0]:Push[Int[-5]]\n");
-        instr_test "2 9 11 + () / ()" (Ok ":[0]:Push[Int[10]]\n");
-        instr_test "1 '1' + ()" (Ok ":[0]:Push[Int[50]]\n");
-
-        instr_test ~cf:false "2 9 +" (Ok ":[0]:Push[Fn[+]]Push[Int[9]]Push[Int[2]]\n");
-        instr_test ~cf:false "2 9 + ()" (Ok ":[0]:Apply[]Push[Fn[+]]Push[Int[9]]Push[Int[2]]\n");
-        instr_test ~cf:false "14 13 * ()" (Ok ":[0]:Apply[]Push[Fn[*]]Push[Int[13]]Push[Int[14]]\n");
-        instr_test ~cf:false "2 6 / ()" (Ok ":[0]:Apply[]Push[Fn[/]]Push[Int[6]]Push[Int[2]]\n");
-        instr_test ~cf:false "6 1 - ()" (Ok ":[0]:Apply[]Push[Fn[-]]Push[Int[1]]Push[Int[6]]\n");
-        instr_test ~cf:false "2 9 11 + () / ()" (Ok ":[0]:Apply[]Push[Fn[/]]Apply[]Push[Fn[+]]Push[Int[11]]Push[Int[9]]Push[Int[2]]\n");
+        instr_test "2 9 +" (Ok ":0:[Return [Add:9:2]]\n");
+        instr_test "2 9 + ()" (Ok ":0:[Return [11]]\n");
+        instr_test "14 13 * ()" (Ok ":0:[Return [182]]\n");
+        instr_test "2 6 / ()" (Ok ":0:[Return [3]]\n");
+        instr_test "6 1 - ()" (Ok ":0:[Return [-5]]\n");
+        instr_test "2 9 11 + () / ()" (Ok ":0:[Return [10]]\n");
+        instr_test "1 '1' + ()" (Ok ":0:[Return [50]]\n");
 
         (* Functions *)
-        instr_test "a -> { a }" (Ok ":[0]:Push[Fn[_anon_1]]\n_anon_1:[1]:Push[Arg[2]]\n");
-        instr_test "fun: a -> { a }\nfun" (Ok ":[0]:Push[Fn[_fun]]\n_fun:[1]:Push[Arg[2]]\n");
-        instr_test "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[0]:Push[Int[8]]\n");
-        instr_test "fun: a -> b -> c -> {}\nfun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]\n_fun:[3]:\n");
+        instr_test "a -> { a }" (Ok ":0:[Return [_anon_0]]\n_anon_0:1:[Return [Arg[0]]]\n");
+        instr_test "fun: a -> { a }\nfun" (Ok ":0:[Return [_fun]]\n_fun:1:[Return [Arg[0]]]\n");
+        instr_test "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":0:[Apply _fun[5]][Return [Stored[0]]]\n_fun:1:[Return [Add[3:Arg[0]]]]\n");
+        instr_test ~fe:true "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":0:[Return [8]]\n_fun:1:[Return [Add[3:Arg[0]]]]\n");
+        instr_test "fun: a -> b -> c -> {}\nfun ()" (Ok ":0:[Apply _fun[Pop:Pop:Pop]][Return []]\n_fun:3:[Return []]\n");
 
-        instr_test "a -> { a }" (Ok ":[0]:Push[Fn[_anon_1]]\n_anon_1:[1]:Push[Arg[2]]\n");
-        instr_test "fun: a -> { a }\nfun" (Ok ":[0]:Push[Fn[_fun]]\n_fun:[1]:Push[Arg[2]]\n");
-        instr_test ~cf:false "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[0]:Apply[]Push[Fn[+]]Apply[]Push[Fn[+]]Push[Int[2]]Push[Int[1]]Push[Int[5]]\n");
-        instr_test ~cf:false "fun: a -> b -> c -> {}\nfun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]\n_fun:[3]:\n");
+        instr_test "fun: a -> { a a + () fun () } 5 fun ()" (Ok ":0:[Apply _fun[5]][Return []]\n_fun:1:[Apply _fun[Add[Arg[0]:Arg[0]]]][Return []]\n");
 
-        instr_test ~fe:false "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]Push[Int[5]]\n_fun:[1]:Apply[]Push[Fn[+]]Push[Int[3]]Push[Arg[2]]\n");
-        instr_test ~fe:false ~cf:false "fun: a -> { a 1 2 + () + () }\n5 fun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]Push[Int[5]]\n_fun:[1]:Apply[]Push[Fn[+]]Apply[]Push[Fn[+]]Push[Int[2]]Push[Int[1]]Push[Arg[2]]\n");
-        instr_test ~fe:false "fun: a -> { a a + () fun () } 5 fun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]Push[Int[5]]\n_fun:[1]:Apply[]Push[Fn[_fun]]Apply[]Push[Fn[+]]Push[Arg[2]]Push[Arg[2]]\n");
-        instr_test ~fe:false ~cf:false "fun: a -> { a a + () fun () } 5 fun ()" (Ok ":[0]:Apply[]Push[Fn[_fun]]Push[Int[5]]\n_fun:[1]:Apply[]Push[Fn[_fun]]Apply[]Push[Fn[+]]Push[Arg[2]]Push[Arg[2]]\n");
-
-        instr_test "a: x -> { x x + () }\nb: x -> y -> { y a () }\n5 1 b ()" (Ok ":[0]:Push[Int[10]]\n");
-        instr_test ~cf:false "a: x -> { x x + () }\nb: x -> y -> { y a () }\n5 1 b ()" (Ok ":[0]:Apply[]Push[Fn[+]]Push[Int[5]]Push[Int[5]]\n");
-        instr_test ~fe:false "a: x -> { x x + () }\nb: x -> y -> { y a () }\n5 1 b ()" (Ok ":[0]:Apply[]Push[Fn[_b]]Push[Int[1]]Push[Int[5]]\n_a:[1]:Apply[]Push[Fn[+]]Push[Arg[2]]Push[Arg[2]]\n_b:[2]:Apply[]Push[Fn[_a]]Push[Arg[2]]\n");
-        instr_test ~cf:false ~fe:false "a: x -> { x x + () }\nb: x -> y -> { y a () }\n5 1 b ()" (Ok ":[0]:Apply[]Push[Fn[_b]]Push[Int[1]]Push[Int[5]]\n_a:[1]:Apply[]Push[Fn[+]]Push[Arg[2]]Push[Arg[2]]\n_b:[2]:Apply[]Push[Fn[_a]]Push[Arg[2]]\n");
+        instr_test "a: x -> { x x + () }\nb: x -> y -> { y a () }\n5 1 b ()" (Ok ":0:[Apply _b[1:5]][Return [Stored[0]]]\n_a:1:[Return [Add[Arg[0]:Arg[0]]]]\n_b:2:[Apply _a[Arg[1]]][Return [Stored[0]]]\n");
+        instr_test ~fe:true "a: x -> { x x + () }\nb: x -> y -> { y a () }\n5 1 b ()" (Ok ":0:[Return [10]]\n_a:1:[Return [Add[Arg[0]:Arg[0]]]]\n_b:2:[Store Arg[1]][Return [Add[Stored[0]:Stored[0]]]]\n");
 
         (* Write *)
-        instr_test "5 ." (Ok ":[0]:Push[Int[5]]Write[Int[5]]\n");
-        instr_test "line .\nline: 10" (Ok ":[0]:Push[Int[10]]Write[Int[10]]\n");
-        instr_test "2 4 + () ." (Ok ":[0]:Push[Int[6]]Write[Int[6]]\n");
-        instr_test ~cf:false "2 4 + () ." (Ok ":[0]:Write[Int[]]Apply[]Push[Fn[+]]Push[Int[4]]Push[Int[2]]\n");
-        instr_test ~cf:false "2 4 + () ," (Ok ":[0]:Write[Char[]]Apply[]Push[Fn[+]]Push[Int[4]]Push[Int[2]]\n");
-        instr_test "'a' ," (Ok ":[0]:Push[Int[97]]Write[Char[97]]\n");
+        instr_test "5 ." (Ok ":0:[Write[Int:5]][Return [5]]\n");
+        instr_test "line .\nline: 10" (Ok ":0:[Write[Int:10]][Return [10]]\n");
+        instr_test "2 4 + () ." (Ok ":0:[Write[Int:6]][Return [6]]\n");
+        instr_test "'a' ," (Ok ":0:[Write[Char:97]][Return [97]]\n");
 
         (* Read *)
-        instr_test "~" (Ok ":[0]:Read[Char[]]\n");
-        instr_test "2 ~ + ()" (Ok ":[0]:Apply[]Push[Fn[+]]Read[Char[]]Push[Int[2]]\n");
-
-        instr_test "a" (Err [(1, 0), (1, 0)]);
-        instr_test "a -> { b }" (Err [(1, 7), (1, 7)]);
-        instr_test "a -> { b }\na -> { b: 5 }" (Err [(1, 7), (1, 7)]);
+        instr_test "~" (Ok ":0:[Return [Read[Char]]]\n");
+        instr_test "2 ~ + ()" (Ok ":0:[Return [Add[Read[Char]:2]]]\n");
     ] in
 
     check_tests "Instr " 1 tests;

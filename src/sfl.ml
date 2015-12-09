@@ -4,7 +4,7 @@
 open Core.Std
 open Flag
 
-let run filename emit_asm emit_fns emit_ast output size_flags opt_flags () =
+let run filename emit_llvm emit_fns emit_ast output opt_flags () =
     try
         (* Open a file *)
         let chan = In_channel.create filename in
@@ -28,7 +28,7 @@ let run filename emit_asm emit_fns emit_ast output size_flags opt_flags () =
             )
 
             ~codegen_callback:(fun code -> 
-                if emit_asm then (
+                if emit_llvm then (
                     print_endline code;
                     false
                 ) else
@@ -37,7 +37,6 @@ let run filename emit_asm emit_fns emit_ast output size_flags opt_flags () =
 
             ~filename: filename
             ~opt_flags: opt_flags
-            ~size_flags: size_flags
             ~output: output
             chan 
         in
@@ -52,28 +51,19 @@ let run filename emit_asm emit_fns emit_ast output size_flags opt_flags () =
         | Sys_error e -> print_endline "[1;31m[Error][0m Unable to open file"
 
 let () =
-  Command.basic ~summary:"Compiler"
+  Command.basic ~summary:"SFL Compiler"
     Command.Spec.(
         empty 
         +> anon ("filename" %: file)
-        +> flag "--emit-asm" no_arg ~doc:" Output asm to stdout"
+        +> flag "--emit-llvm" no_arg ~doc:" Output llvm ir to stdout"
         +> flag "--emit-fns" no_arg ~doc:" Output fn instrs to stdout"
         +> flag "--emit-ast" no_arg ~doc:" Output ast representation to stdout"
         +> flag ~aliases:["-o"] "--output" (optional_with_default "a.out" file) ~doc:"filename The output filename"
-        +> flag "--stack-size" (optional_with_default 1024 int) ~doc:"size The size of the program stack"
-        +> flag "--storage-size" (optional_with_default 4096 int) ~doc:"size The size of the program storage"
-        +> flag "--no-constant-folding" no_arg ~doc:" Disable constant folding optimisations"
-        +> flag "--no-storage-cleaning" no_arg ~doc:" Disable storage cleaning optimisation (will fix some crashes, but use more storage)"
-        +> flag "--no-function-execution" no_arg ~doc: " Disable execution of functions with constant arguments. Keeping enabled may cause horiffic compile times, but will execute as much as possible"
+        +> flag "--function-inlining" no_arg ~doc: " Enable inlining of functions where possible. Enabling this will currently break with programs that use recursion"
     )
-    (fun filename emit_asm emit_fns emit_ast output stack_size storage_size disable_cf disable_sc disable_fe ->
-        run filename emit_asm emit_fns emit_ast output {
-            stack=stack_size;
-            storage=storage_size
-        } { 
-            cf=(not disable_cf);
-            sc=(not disable_sc);
-            fe=(not disable_fe);
+    (fun filename emit_llvm emit_fns emit_ast output enable_fe ->
+        run filename emit_llvm emit_fns emit_ast output {
+            fe=enable_fe
         }
     )
   |> Command.run

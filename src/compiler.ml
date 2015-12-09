@@ -37,7 +37,7 @@ let run
 
     (* Run the first optimisation stage *)
     let instr_result = match parse_result with
-        | Continue (Errors.Ok prog) -> begin match Instr.generate_instructions opt_flags prog with
+        | Continue (Errors.Ok prog) -> begin match Instr.generate_instrs opt_flags prog with
             | Errors.Ok code -> begin match instr_callback with
                 | Some f -> if f code then Continue (Errors.Ok code) else Terminate
                 | None -> Continue (Errors.Ok code)
@@ -66,8 +66,21 @@ let run
 
     match compiler_result with
         | Continue (Errors.Ok code) -> (
-            let command = "echo \"" ^ code ^ "\" | cc -o " ^ output ^ " -xassembler -" in
+            let tmp_filename = ".tmp_" ^ output ^ "_llvm_tmp.ll" in
+            let tmp_s_filename = ".tmp_" ^ output ^ "_llvm_tmp.s" in
+            let tmp_file = Core.Std.Out_channel.create tmp_filename in
+            Core.Std.Out_channel.output_string tmp_file code;
+            Core.Std.Out_channel.close tmp_file;
+
+            let command = "llc " ^ tmp_filename in
             ignore (Sys.command command);
+
+            let command = "cc -o " ^ output ^ " " ^ tmp_s_filename in
+            ignore (Sys.command command);
+
+            Sys.remove tmp_s_filename;
+            Sys.remove tmp_filename;
+
             Errors.Ok(())
         )
 
