@@ -60,6 +60,8 @@ swap: a -> b -> {
 
 This can also be used with non-function values, however it is most useful for defining reusable functions.
 
+There is a tutorial in ```doc/tutorial``` that will guide you through some examples and introduce input and output.
+
 Runnable examples can be found in ```doc/examples``` in the repository. Try changing the numbers and seeing
 how quickly things break!
 
