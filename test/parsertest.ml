@@ -33,6 +33,7 @@ let parser_test code output =
             | Ok(()) -> ()
             | Err(errs) -> result := Err (map (fun err -> match err with
                 | NotImplemented p
+                | NotEnoughArgs p
                 | UndefinedName (_, p)
                 | RedefinedName (_, _, p)
                 | UnterminatedLBrace p

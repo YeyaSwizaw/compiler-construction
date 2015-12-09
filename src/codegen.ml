@@ -125,15 +125,15 @@ let generate_code opt_flags size_flags fns =
                 let else_b = append_block ctx "false_case" code_fn in
                 let join_b = append_block ctx "join_ite" code_fn in
 
-                build_cond_br cmp then_b else_b bld;
+                ignore (build_cond_br cmp then_b else_b bld);
 
                 position_at_end then_b bld;
                 let then_v = generate_value x in
-                build_br join_b bld;
+                ignore (build_br join_b bld);
 
                 position_at_end else_b bld;
                 let else_v = generate_value y in
-                build_br join_b bld;
+                ignore (build_br join_b bld);
 
                 position_at_end join_b bld;
                 build_phi [then_v, then_b; else_v, else_b] "ite_result" bld
@@ -149,7 +149,7 @@ let generate_code opt_flags size_flags fns =
                 let stack_pos_ptr = stack_count () in
                 let stack_pos = build_sub (build_load stack_pos_ptr "stack_pos" bld) (const_int int_t 1) "new_pos" bld in
                 let stack_ptr = build_in_bounds_gep (stack ()) [|const_int int_t 0; stack_pos|] "stack_ptr" bld in
-                build_store stack_pos stack_pos_ptr bld;
+                ignore (build_store stack_pos stack_pos_ptr bld);
                 build_load stack_ptr "popped_value" bld
             end
         in
@@ -158,6 +158,13 @@ let generate_code opt_flags size_flags fns =
             | Instr.WriteConst (Instr.AsChar, v) -> begin
                 let value = generate_value (Instr.Const v) in
                 ignore (build_call (get_fn_putchar ()) [|value|] "" bld)
+            end
+
+            | Instr.WriteConst (Instr.AsInt, v) -> begin
+                let value = generate_value (Instr.Const v) in
+                let sp = build_gep format_str [|const_int int_t 0|] "write_ptr" bld in
+                let spp = build_bitcast sp (pointer_type (integer_type ctx 8)) "write_val" bld in
+                ignore (build_call (get_fn_printf ()) [|spp; value|] "" bld)
             end
 
             | Instr.WriteStored (Instr.AsChar, n) -> begin

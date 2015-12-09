@@ -125,6 +125,7 @@ let rec string_of_value_source = function
     | BinOp (op, x, y) -> string_of_binop op ^ "[" ^ string_of_value_source x ^ ":" ^ string_of_value_source y ^ "]"
     | TriOp (op, x, y, z) -> string_of_triop op ^ "[" ^ string_of_value_source x ^ ":" ^ string_of_value_source y ^ ":" ^ string_of_value_source z ^ "]"
     | Read AsChar -> "Read[Char]"
+    | Read AsInt -> "Read[Int]"
     | Arg n -> "Arg[" ^ string_of_int n ^ "]"
     | Stored n -> "Stored[" ^ string_of_int n ^ "]"
     | Pop -> "Pop"
@@ -530,6 +531,11 @@ let generate_instrs opt_flags code =
                             stored
                             code
                     end
+
+                    | _ -> begin
+                        errors := Errors.not_implemented (exp_block.Syntax.location) :: !errors;
+                        generate_function next_id recursed tainted instrs values env stored code
+                    end
                 end
             end
 
@@ -556,6 +562,11 @@ let generate_instrs opt_flags code =
             | Syntax.PopEnv -> begin match env.parent with
                 | Some parent -> generate_function next_id recursed tainted instrs values parent stored code
                 | None -> generate_function next_id recursed tainted instrs values env stored code
+            end
+
+            | _ -> begin
+                errors := Errors.not_implemented (exp_block.Syntax.location) :: !errors;
+                generate_function next_id recursed tainted instrs values env stored code
             end
         end
     in

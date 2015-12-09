@@ -18,7 +18,7 @@ let execute_and_get_stdout cmd =
     let _ = Unix.close_process (ic, oc) in
     Buffer.contents buf
 
-let runtime_test ?(fe=true) ?(cf=true) code output =
+let runtime_test ?(fe=false) code output =
     let fail_f res exp () =
         "    Input: " ^ code
         ^ "\n    Expected: " ^ exp
@@ -34,7 +34,6 @@ let runtime_test ?(fe=true) ?(cf=true) code output =
 
         let opt_flags = { 
             Flag.default_opt_flags with
-                Flag.cf=cf;
                 Flag.fe=fe;
         } in
 
@@ -77,29 +76,10 @@ let run () =
         runtime_test "5 2 = () ." "0";
         runtime_test "3 6 = () ." "0";
         runtime_test "17 4 add () .\nadd: a -> b -> { a b + () }" "21";
+        runtime_test "add: x -> y -> { x y + () }\napply: f -> x -> { x x f () }\n3 add apply () ." "6";
 
-        runtime_test ~cf:false "1 ." "1";
-        runtime_test ~cf:false "5 7 ." "7";
-        runtime_test ~cf:false "number .\nnumber: 13" "13";
-        runtime_test ~cf:false "'f' ." "102";
-        runtime_test ~cf:false "'f' ," "f";
-        runtime_test ~cf:false "6 3 + () ." "9";
-        runtime_test ~cf:false "2 11 * () ." "22";
-        runtime_test ~cf:false "15 5 - () ." "-10";
-        runtime_test ~cf:false "2 8 / () ." "4";
-        runtime_test ~cf:false "2 3 1 ? () ." "3";
-        runtime_test ~cf:false "2 3 0 ? () ." "2";
-        runtime_test ~cf:false "5 2 < () ." "1";
-        runtime_test ~cf:false "1 7 < () ." "0";
-        runtime_test ~cf:false "5 2 > () ." "0";
-        runtime_test ~cf:false "1 7 > () ." "1";
-        runtime_test ~cf:false "5 5 = () ." "1";
-        runtime_test ~cf:false "5 2 = () ." "0";
-        runtime_test ~cf:false "3 6 = () ." "0";
-        runtime_test ~cf:false "17 4 add () .\nadd: a -> b -> { a b + () }" "21";
-
-        runtime_test ~fe:false "17 4 add () .\nadd: a -> b -> { a b + () }" "21";
-        runtime_test ~fe:false ~cf:false "17 4 add ().\nadd: a -> b -> { a b + () }" "21";
+        runtime_test ~fe:true "17 4 add () .\nadd: a -> b -> { a b + () }" "21";
+        runtime_test ~fe:true "add: x -> y -> { x y + () }\napply: f -> x -> { x x f () }\n3 add apply () ." "6";
     ] in
 
     check_tests "Runtime " 1 tests;
