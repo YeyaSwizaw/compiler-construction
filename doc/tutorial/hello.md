@@ -107,7 +107,7 @@ If c is non-zero, we want to print it out, and then recurse to repeat this funct
 ```
 print: c -> {
   c # push c to the stack to be operated on
-  c -> { # function if true - print and repead
+  c -> { # function if true - print and repeat
     # TODO: somehow output c
     print () # recurse
   }
