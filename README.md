@@ -6,7 +6,7 @@ implemented in OCaml for my third year Compiler Construction module.
 The compiler depends on LLVM (tested on 3.7), which should be installed using
 your system package manager of choice.
 
-It then has three OCaml dependecies, which can be easily installed with opam:
+It then has three OCaml dependencies, which can be easily installed with opam:
 
 ```
 # opam install core
